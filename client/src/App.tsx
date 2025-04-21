@@ -1,26 +1,27 @@
 import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import Header from './components/Header';
 
-function App() {
+const App: React.FC = () => {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div className="min-h-screen bg-gray-200">
+      <Header />
+      <main className="container mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold mb-6">AWS Cognito Authentication Demo</h1>
+        
+        <div className="bg-white shadow-md rounded-lg p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4">About This Demo</h2>
+          <p className="mb-4">
+            This application demonstrates a secure authentication flow using:
+          </p>
+          <ul className="list-disc pl-5 space-y-2">
+            <li>React client for the frontend</li>
+            <li>AWS Cognito for authentication</li>
+            <li>Next.js server for token validation and session management</li>
+          </ul>
+        </div>
+      </main>
     </div>
   );
-}
+};
 
 export default App;
