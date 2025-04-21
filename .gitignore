@@ -1,0 +1,44 @@
+# Node.js
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# React build output
+build/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+*.log.*
+
+# npm package lock files
+package-lock.json
+yarn.lock
+
+# dotenv environment variables file
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Next.js specific
+.next/
+.cache/
+
+# TypeScript
+*.tsbuildinfo
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Optional npm package stores
+.npm/
