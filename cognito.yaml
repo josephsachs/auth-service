@@ -1,0 +1,156 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for Cognito resources'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: The environment this template is being deployed to
+
+  UserPoolName:
+    Type: String
+    Description: Name of the Cognito User Pool
+    Default: !Sub '${AWS::StackName}-UserPool'
+
+  EmailVerificationMessage:
+    Type: String
+    Description: Email message for verification
+    Default: 'Thank you for registering. Your verification code is {####}.'
+
+  EmailVerificationSubject:
+    Type: String
+    Description: Email subject for verification
+    Default: 'Your verification code'
+
+  CustomDomain:
+    Type: String
+    Description: Custom domain for Cognito (optional)
+    Default: ""
+
+  CallbackUrls:
+    Type: CommaDelimitedList
+    Description: Comma-delimited list of allowed callback URLs
+    Default: ""
+
+  LogoutUrls:
+    Type: CommaDelimitedList
+    Description: Comma-delimited list of allowed logout URLs
+    Default: ""
+
+Conditions:
+  HasCustomDomain: !Not [!Equals [!Ref CustomDomain, ""]]
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Ref UserPoolName
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Mutable: true
+          Required: true
+        - Name: handle
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+          TemporaryPasswordValidityDays: 7
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      EmailConfiguration:
+        EmailSendingAccount: COGNITO_DEFAULT
+      EmailVerificationMessage: !Ref EmailVerificationMessage
+      EmailVerificationSubject: !Ref EmailVerificationSubject
+      MfaConfiguration: 'OFF'
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      UserPoolTags:
+        Environment: !Ref Environment
+      DeletionProtection: ACTIVE
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: !Sub '${UserPoolName}-client'
+      GenerateSecret: true
+      RefreshTokenValidity: 30
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      TokenValidityUnits:
+        AccessToken: 'hours'
+        IdToken: 'hours'
+        RefreshToken: 'days'
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_CUSTOM_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+      AllowedOAuthFlows:
+        - code
+        - implicit
+      AllowedOAuthScopes:
+        - phone
+        - email
+        - openid
+        - profile
+        - aws.cognito.signin.user.admin
+      CallbackURLs: !Ref CallbackUrls
+      LogoutURLs: !Ref LogoutUrls
+      SupportedIdentityProviders:
+        - COGNITO
+      PreventUserExistenceErrors: ENABLED
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub '${AWS::StackName}-${Environment}'
+      UserPoolId: !Ref UserPool
+
+  CustomUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Condition: HasCustomDomain
+    Properties:
+      Domain: !Ref CustomDomain
+      UserPoolId: !Ref UserPool
+      CustomDomainConfig:
+        CertificateArn: !ImportValue CognitoCustomDomainCertificate
+
+Outputs:
+  UserPoolId:
+    Description: ID of the Cognito User Pool
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolId'
+
+  UserPoolClientId:
+    Description: ID of the Cognito User Pool Client
+    Value: !Ref UserPoolClient
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolClientId'
+
+  UserPoolDomainName:
+    Description: Domain name of the Cognito User Pool
+    Value: !Sub '${AWS::StackName}-${Environment}.auth.${AWS::Region}.amazoncognito.com'
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolDomain'
+
+  UserPoolArn:
+    Description: ARN of the Cognito User Pool
+    Value: !GetAtt UserPool.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-UserPoolArn'

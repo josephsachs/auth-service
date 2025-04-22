@@ -1,0 +1,123 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for IAM resources'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: The environment this template is being deployed to
+
+  UserPoolId:
+    Type: String
+    Description: ID of the Cognito User Pool
+    Default: ''
+
+Resources:
+  ApplicationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'CognitoAuthDemo-${Environment}-AppRole'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Path: /
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  ApplicationCognitoPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub 'CognitoAuthDemo-${Environment}-CognitoPolicy'
+      Roles:
+        - !Ref ApplicationRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - cognito-idp:AdminInitiateAuth
+              - cognito-idp:AdminCreateUser
+              - cognito-idp:AdminSetUserPassword
+              - cognito-idp:AdminGetUser
+              - cognito-idp:AdminUpdateUserAttributes
+              - cognito-idp:AdminConfirmSignUp
+              - cognito-idp:AdminRespondToAuthChallenge
+              - cognito-idp:GetUser
+              - cognito-idp:UpdateUserAttributes
+              - cognito-idp:ChangePassword
+              - cognito-idp:ForgotPassword
+              - cognito-idp:ConfirmForgotPassword
+              - cognito-idp:InitiateAuth
+              - cognito-idp:RespondToAuthChallenge
+            Resource: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPoolId}'
+
+  ApplicationParameterStorePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub 'CognitoAuthDemo-${Environment}-ParameterStorePolicy'
+      Roles:
+        - !Ref ApplicationRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+              - ssm:GetParametersByPath
+            Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/CognitoAuthDemo/${Environment}/*'
+
+  ApplicationSecretsManagerPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub 'CognitoAuthDemo-${Environment}-SecretsManagerPolicy'
+      Roles:
+        - !Ref ApplicationRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+              - secretsmanager:DescribeSecret
+            Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:CognitoAuthDemo/${Environment}/*'
+            
+  ApplicationInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref ApplicationRole
+
+Outputs:
+  ApplicationRoleArn:
+    Description: ARN of the Application IAM Role
+    Value: !GetAtt ApplicationRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ApplicationRoleArn'
+
+  ApplicationRoleName:
+    Description: Name of the Application IAM Role
+    Value: !Ref ApplicationRole
+    Export:
+      Name: !Sub '${AWS::StackName}-ApplicationRoleName'
+      
+  ApplicationInstanceProfileArn:
+    Description: ARN of the Application Instance Profile
+    Value: !GetAtt ApplicationInstanceProfile.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ApplicationInstanceProfileArn'
+      
+  ApplicationInstanceProfileName:
+    Description: Name of the Application Instance Profile
+    Value: !Ref ApplicationInstanceProfile
+    Export:
+      Name: !Sub '${AWS::StackName}-ApplicationInstanceProfileName'

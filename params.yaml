@@ -1,0 +1,125 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for Parameter Store and Secrets Manager resources'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: The environment this template is being deployed to
+
+  UserPoolId:
+    Type: String
+    Description: ID of the Cognito User Pool
+    Default: ''
+
+  UserPoolClientId:
+    Type: String
+    Description: ID of the Cognito User Pool Client
+    Default: ''
+    
+  UserPoolClientSecret:
+    Type: String
+    Description: Secret of the Cognito User Pool Client
+    NoEcho: true
+    Default: ''
+    
+  ReactAppUrl:
+    Type: String
+    Description: URL of the React application
+    Default: ''
+    
+  NextJsApiUrl:
+    Type: String
+    Description: URL of the Next.js API
+    Default: ''
+
+Resources:
+  CognitoUserPoolIdParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/CognitoAuthDemo/${Environment}/COGNITO_USER_POOL_ID'
+      Type: String
+      Value: !Ref UserPoolId
+      Description: ID of the Cognito User Pool
+      Tier: Standard
+      Tags:
+        Environment: !Ref Environment
+
+  CognitoUserPoolRegionParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/CognitoAuthDemo/${Environment}/COGNITO_REGION'
+      Type: String
+      Value: !Ref AWS::Region
+      Description: Region of the Cognito User Pool
+      Tier: Standard
+      Tags:
+        Environment: !Ref Environment
+
+  CognitoUserPoolClientIdParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/CognitoAuthDemo/${Environment}/COGNITO_CLIENT_ID'
+      Type: String
+      Value: !Ref UserPoolClientId
+      Description: ID of the Cognito User Pool Client
+      Tier: Standard
+      Tags:
+        Environment: !Ref Environment
+
+  ReactAppUrlParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/CognitoAuthDemo/${Environment}/REACT_APP_URL'
+      Type: String
+      Value: !Ref ReactAppUrl
+      Description: URL of the React application
+      Tier: Standard
+      Tags:
+        Environment: !Ref Environment
+        
+  NextJsApiUrlParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/CognitoAuthDemo/${Environment}/NEXTJS_API_URL'
+      Type: String
+      Value: !Ref NextJsApiUrl
+      Description: URL of the Next.js API
+      Tier: Standard
+      Tags:
+        Environment: !Ref Environment
+
+  CorsAllowedOriginsParameter:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub '/CognitoAuthDemo/${Environment}/CORS_ALLOWED_ORIGINS'
+      Type: String
+      Value: !Ref ReactAppUrl
+      Description: Allowed origins for CORS
+      Tier: Standard
+      Tags:
+        Environment: !Ref Environment
+
+  CognitoUserPoolClientSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub 'CognitoAuthDemo/${Environment}/COGNITO_CLIENT_SECRET'
+      Description: Secret of the Cognito User Pool Client
+      SecretString: !Ref UserPoolClientSecret
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  ParameterPath:
+    Description: Base path for all parameters
+    Value: !Sub '/CognitoAuthDemo/${Environment}'
+    Export:
+      Name: !Sub '${AWS::StackName}-ParameterPath'
+      
+  CognitoUserPoolClientSecretArn:
+    Description: ARN of the Cognito User Pool Client Secret
+    Value: !Ref CognitoUserPoolClientSecret
+    Export:
+      Name: !Sub '${AWS::StackName}-CognitoUserPoolClientSecretArn'

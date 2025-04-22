@@ -1,0 +1,427 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Main CloudFormation template for Cognito Authentication Demo'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: The environment this template is being deployed to
+
+  UserPoolName:
+    Type: String
+    Description: Name of the Cognito User Pool
+    Default: 'CognitoAuthDemo-UserPool'
+
+  CustomDomain:
+    Type: String
+    Description: Custom domain for Cognito (optional)
+    Default: ""
+    
+  DomainName:
+    Type: String
+    Description: Domain name for the application (e.g., example.com)
+    Default: ""
+
+Conditions:
+  HasDomainName: !Not [!Equals [!Ref DomainName, ""]]
+
+Resources:
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: HasDomainName
+    Properties:
+      DomainName: !Ref DomainName
+      SubjectAlternativeNames:
+        - !Sub "*.${DomainName}"
+      ValidationMethod: DNS
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  ReactAppBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'cognito-auth-demo-${Environment}-${AWS::AccountId}'
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  ReactAppCloudFront:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - DomainName: !GetAtt ReactAppBucket.RegionalDomainName
+            Id: S3Origin
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOAI}"
+        Enabled: true
+        DefaultRootObject: index.html
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: !If [HasDomainName, !Ref 'AWS::NoValue', true]
+          AcmCertificateArn: !If [HasDomainName, !Ref Certificate, !Ref 'AWS::NoValue']
+          SslSupportMethod: !If [HasDomainName, 'sni-only', !Ref 'AWS::NoValue']
+        Aliases: !If [HasDomainName, [!Sub "app.${DomainName}"], !Ref 'AWS::NoValue']
+        PriceClass: PriceClass_100
+        HttpVersion: http2
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  CloudFrontOAI:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub "OAI for ${AWS::StackName}"
+
+  ReactAppBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ReactAppBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - 's3:GetObject'
+            Effect: Allow
+            Resource: !Sub '${ReactAppBucket.Arn}/*'
+            Principal:
+              CanonicalUser: !GetAtt CloudFrontOAI.S3CanonicalUserId
+
+  NextJsApiInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', AMI]
+      IamInstanceProfile: !GetAtt IamStack.Outputs.ApplicationInstanceProfileName
+      SecurityGroupIds:
+        - !Ref NextJsApiSecurityGroup
+      SubnetId: !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: !Sub 'cognito-auth-demo-${Environment}-nextjs'
+        - Key: Environment
+          Value: !Ref Environment
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          yum update -y
+          yum install -y nodejs npm git certbot
+          amazon-linux-extras install -y nginx1
+          
+          # Set up Nginx with SSL
+          cat > /etc/nginx/conf.d/nextjs.conf << 'EOL'
+          server {
+              listen 80;
+              server_name _;
+              
+              # Redirect HTTP to HTTPS
+              location / {
+                  return 301 https://$host$request_uri;
+              }
+          }
+          
+          server {
+              listen 443 ssl;
+              server_name _;
+              
+              # Self-signed certificate for development
+              # In production, we would use a proper certificate
+              ssl_certificate /etc/ssl/certs/nginx-selfsigned.crt;
+              ssl_certificate_key /etc/ssl/private/nginx-selfsigned.key;
+              
+              location / {
+                  proxy_pass http://localhost:3000;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection 'upgrade';
+                  proxy_set_header Host $host;
+                  proxy_cache_bypass $http_upgrade;
+              }
+          }
+          EOL
+          
+          # Generate self-signed certificate for development
+          mkdir -p /etc/ssl/private
+          openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout /etc/ssl/private/nginx-selfsigned.key \
+            -out /etc/ssl/certs/nginx-selfsigned.crt \
+            -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
+          
+          systemctl enable nginx
+          systemctl start nginx
+          # Actual Next.js setup will be completed through CI/CD or manually
+
+  NextJsApiSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for NextJs API instance
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  NextJsLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref NextJsApiSecurityGroup
+      Subnets:
+        - !Ref PublicSubnet
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  HttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref NextJsTargetGroup
+      LoadBalancerArn: !Ref NextJsLoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !If [HasDomainName, !Ref Certificate, !Ref DefaultCertificate]
+
+  DefaultCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Sub "${AWS::StackName}.example.com"
+      ValidationMethod: DNS
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: '443'
+            Host: '#{host}'
+            Path: '/#{path}'
+            Query: '#{query}'
+            StatusCode: HTTP_301
+      LoadBalancerArn: !Ref NextJsLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  NextJsTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckPath: /api/health
+      HealthCheckProtocol: HTTPS
+      Port: 443
+      Protocol: HTTPS
+      TargetType: instance
+      VpcId: !Ref VPC
+      Targets:
+        - Id: !Ref NextJsApiInstance
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub 'cognito-auth-demo-${Environment}-vpc'
+        - Key: Environment
+          Value: !Ref Environment
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub 'cognito-auth-demo-${Environment}-igw'
+        - Key: Environment
+          Value: !Ref Environment
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs 
+          Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: !Sub 'cognito-auth-demo-${Environment}-public-subnet'
+        - Key: Environment
+          Value: !Ref Environment
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub 'cognito-auth-demo-${Environment}-public-route-table'
+        - Key: Environment
+          Value: !Ref Environment
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  CognitoStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./cognito.yaml
+      Parameters:
+        Environment: !Ref Environment
+        UserPoolName: !Ref UserPoolName
+        CallbackUrls: !Join 
+          - ','
+          - - !Sub 'https://${ReactAppCloudFront.DomainName}/callback'
+            - !Sub 'https://${NextJsLoadBalancer.DNSName}/api/auth/callback'
+        LogoutUrls: !Join 
+          - ','
+          - - !Sub 'https://${ReactAppCloudFront.DomainName}'
+            - !Sub 'https://${NextJsLoadBalancer.DNSName}'
+        CustomDomain: !Ref CustomDomain
+
+  IamStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: CognitoStack
+    Properties:
+      TemplateURL: ./iam.yaml
+      Parameters:
+        Environment: !Ref Environment
+        UserPoolId: !GetAtt CognitoStack.Outputs.UserPoolId
+
+  ParamsStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: 
+      - CognitoStack
+      - ReactAppCloudFront
+      - NextJsLoadBalancer
+    Properties:
+      TemplateURL: ./params.yaml
+      Parameters:
+        Environment: !Ref Environment
+        UserPoolId: !GetAtt CognitoStack.Outputs.UserPoolId
+        UserPoolClientId: !GetAtt CognitoStack.Outputs.UserPoolClientId
+        UserPoolClientSecret: '{{resolve:secretsmanager:CognitoUserPoolClientSecret:SecretString}}'
+        ReactAppUrl: !Sub 'https://${ReactAppCloudFront.DomainName}'
+        NextJsApiUrl: !Sub 'https://${NextJsLoadBalancer.DNSName}'
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-0c02fb55956c7d316  # Amazon Linux 2023 AMI for us-east-1
+    us-east-2:
+      AMI: ami-07bc04fdc13241142  # Amazon Linux 2023 AMI for us-east-2
+    us-west-1:
+      AMI: ami-07bc04fdc13241142  # Amazon Linux 2023 AMI for us-west-1
+    us-west-2:
+      AMI: ami-07bc04fdc13241142  # Amazon Linux 2023 AMI for us-west-2
+    eu-west-1:
+      AMI: ami-07bc04fdc13241142  # Amazon Linux 2023 AMI for eu-west-1
+    eu-central-1:
+      AMI: ami-07bc04fdc13241142  # Amazon Linux 2023 AMI for eu-central-1
+
+Outputs:
+  ReactAppUrl:
+    Description: URL of the React application
+    Value: !Sub 'https://${ReactAppCloudFront.DomainName}'
+
+  NextJsApiUrl:
+    Description: URL of the Next.js API
+    Value: !Sub 'https://${NextJsLoadBalancer.DNSName}'
+
+  UserPoolId:
+    Description: ID of the Cognito User Pool
+    Value: !GetAtt CognitoStack.Outputs.UserPoolId
+
+  UserPoolClientId:
+    Description: ID of the Cognito User Pool Client
+    Value: !GetAtt CognitoStack.Outputs.UserPoolClientId
+
+  UserPoolDomainName:
+    Description: Domain name of the Cognito User Pool
+    Value: !GetAtt CognitoStack.Outputs.UserPoolDomainName
+
+  ApplicationRoleArn:
+    Description: ARN of the Application IAM Role
+    Value: !GetAtt IamStack.Outputs.ApplicationRoleArn
+
+  ApplicationInstanceProfileName:
+    Description: Name of the Application Instance Profile
+    Value: !GetAtt IamStack.Outputs.ApplicationInstanceProfileName
+
+  ParameterPath:
+    Description: Base path for all parameters
+    Value: !GetAtt ParamsStack.Outputs.ParameterPath
