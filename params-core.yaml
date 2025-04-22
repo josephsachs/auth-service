@@ -14,18 +14,18 @@ Parameters:
   UserPoolId:
     Type: String
     Description: ID of the Cognito User Pool
-    Default: ''
+    Default: ""
 
   UserPoolClientId:
     Type: String
     Description: ID of the Cognito User Pool Client
-    Default: ''
+    Default: ""
     
   UserPoolClientSecret:
     Type: String
     Description: Secret of the Cognito User Pool Client
     NoEcho: true
-    Default: ''
+    Default: ""
 
 Resources:
   CognitoUserPoolIdParameter:

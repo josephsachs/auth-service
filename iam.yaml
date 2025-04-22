@@ -14,7 +14,7 @@ Parameters:
   UserPoolId:
     Type: String
     Description: ID of the Cognito User Pool
-    Default: ''
+    Default: ""
 
 Resources:
   ApplicationRole:

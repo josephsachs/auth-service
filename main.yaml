@@ -14,7 +14,7 @@ Parameters:
   UserPoolName:
     Type: String
     Description: Name of the Cognito User Pool
-    Default: 'CognitoAuthDemo-UserPool'
+    Default: "CognitoAuthDemo-UserPool"
     
   DomainName:
     Type: String

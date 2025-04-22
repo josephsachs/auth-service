@@ -14,17 +14,17 @@ Parameters:
   UserPoolName:
     Type: String
     Description: Name of the Cognito User Pool
-    Default: !Sub '${AWS::StackName}-UserPool'
+    Default: !Sub "${AWS::StackName}-UserPool"
 
   EmailVerificationMessage:
     Type: String
     Description: Email message for verification
-    Default: 'Thank you for registering. Your verification code is {####}.'
+    Default: "Thank you for registering. Your verification code is {####}."
 
   EmailVerificationSubject:
     Type: String
     Description: Email subject for verification
-    Default: 'Your verification code'
+    Default: "Your verification code"
 
   CustomDomain:
     Type: String
