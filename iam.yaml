@@ -4,8 +4,11 @@ Description: 'CloudFormation template for IAM resources'
 Parameters:
   Environment:
     Type: String
-    Default: dev
-    AllowedValues: [dev, staging, prod]
+    Default: "dev"
+    AllowedValues: 
+      - "dev"
+      - "staging"
+      - "prod"
     Description: The environment this template is being deployed to
 
   UserPoolId:

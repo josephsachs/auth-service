@@ -1,11 +1,14 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'CloudFormation template for Parameter Store and Secrets Manager resources'
+Description: 'CloudFormation template for core parameters needed for local development'
 
 Parameters:
   Environment:
     Type: String
-    Default: dev
-    AllowedValues: [dev, staging, prod]
+    Default: "dev"
+    AllowedValues: 
+      - "dev"
+      - "staging"
+      - "prod"
     Description: The environment this template is being deployed to
 
   UserPoolId:
@@ -22,16 +25,6 @@ Parameters:
     Type: String
     Description: Secret of the Cognito User Pool Client
     NoEcho: true
-    Default: ''
-    
-  ReactAppUrl:
-    Type: String
-    Description: URL of the React application
-    Default: ''
-    
-  NextJsApiUrl:
-    Type: String
-    Description: URL of the Next.js API
     Default: ''
 
 Resources:
@@ -64,39 +57,6 @@ Resources:
       Type: String
       Value: !Ref UserPoolClientId
       Description: ID of the Cognito User Pool Client
-      Tier: Standard
-      Tags:
-        Environment: !Ref Environment
-
-  ReactAppUrlParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub '/CognitoAuthDemo/${Environment}/REACT_APP_URL'
-      Type: String
-      Value: !Ref ReactAppUrl
-      Description: URL of the React application
-      Tier: Standard
-      Tags:
-        Environment: !Ref Environment
-        
-  NextJsApiUrlParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub '/CognitoAuthDemo/${Environment}/NEXTJS_API_URL'
-      Type: String
-      Value: !Ref NextJsApiUrl
-      Description: URL of the Next.js API
-      Tier: Standard
-      Tags:
-        Environment: !Ref Environment
-
-  CorsAllowedOriginsParameter:
-    Type: AWS::SSM::Parameter
-    Properties:
-      Name: !Sub '/CognitoAuthDemo/${Environment}/CORS_ALLOWED_ORIGINS'
-      Type: String
-      Value: !Ref ReactAppUrl
-      Description: Allowed origins for CORS
       Tier: Standard
       Tags:
         Environment: !Ref Environment
