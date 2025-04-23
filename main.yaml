@@ -46,6 +46,7 @@ Resources:
         Environment: !Ref Environment
         UserPoolName: !Sub "${ServiceName}-UserPool"
         CognitoDomainPrefix: !Ref CognitoDomainPrefix
+        ServiceName: !Ref ServiceName
         CallbackUrls: !If
           - IsDev
           - !Sub "${DevBaseUrl}:3000/callback,${DevBaseUrl}:3001/callback"
@@ -78,3 +79,7 @@ Outputs:
   UserPoolDomainName:
     Description: Domain name of the Cognito User Pool
     Value: !GetAtt CognitoStack.Outputs.UserPoolDomainName
+    
+  UserPoolSecretHashArn:
+    Description: ARN of the Secret Manager secret for the Cognito User Pool Client Secret
+    Value: !GetAtt CognitoStack.Outputs.UserPoolSecretHashArn
