@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'CloudFormation template for IAM resources'
+Description: 'CloudFormation template for IAM resources - Simplified for Cognito Access'
 
 Parameters:
   Environment:
@@ -17,30 +17,34 @@ Parameters:
     Default: ""
 
 Resources:
-  ApplicationRole:
+  CognitoAccessRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'CognitoAuthDemo-${Environment}-AppRole'
+      RoleName: !Sub 'CognitoAuthDemo-${Environment}-CognitoAccessRole'
+      Path: '/'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
-          - Effect: Allow
+          - Effect: 'Allow'
             Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
+              Service: 'lambda.amazonaws.com'
+            Action: 'sts:AssumeRole'
+          - Effect: 'Allow'
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'sts:AssumeRole'
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-      Path: /
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
       Tags:
         - Key: Environment
           Value: !Ref Environment
 
-  ApplicationCognitoPolicy:
+  CognitoAccessPolicy:
     Type: AWS::IAM::Policy
     Properties:
       PolicyName: !Sub 'CognitoAuthDemo-${Environment}-CognitoPolicy'
       Roles:
-        - !Ref ApplicationRole
+        - !Ref CognitoAccessRole
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -62,12 +66,12 @@ Resources:
               - cognito-idp:RespondToAuthChallenge
             Resource: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPoolId}'
 
-  ApplicationParameterStorePolicy:
+  ParameterStoreAccessPolicy:
     Type: AWS::IAM::Policy
     Properties:
       PolicyName: !Sub 'CognitoAuthDemo-${Environment}-ParameterStorePolicy'
       Roles:
-        - !Ref ApplicationRole
+        - !Ref CognitoAccessRole
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -77,13 +81,13 @@ Resources:
               - ssm:GetParameters
               - ssm:GetParametersByPath
             Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/CognitoAuthDemo/${Environment}/*'
-
-  ApplicationSecretsManagerPolicy:
+            
+  SecretsManagerAccessPolicy:
     Type: AWS::IAM::Policy
     Properties:
       PolicyName: !Sub 'CognitoAuthDemo-${Environment}-SecretsManagerPolicy'
       Roles:
-        - !Ref ApplicationRole
+        - !Ref CognitoAccessRole
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -92,35 +96,16 @@ Resources:
               - secretsmanager:GetSecretValue
               - secretsmanager:DescribeSecret
             Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:CognitoAuthDemo/${Environment}/*'
-            
-  ApplicationInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      Path: /
-      Roles:
-        - !Ref ApplicationRole
 
 Outputs:
-  ApplicationRoleArn:
-    Description: ARN of the Application IAM Role
-    Value: !GetAtt ApplicationRole.Arn
+  CognitoAccessRoleArn:
+    Description: ARN of the Cognito Access IAM Role
+    Value: !GetAtt CognitoAccessRole.Arn
     Export:
-      Name: !Sub '${AWS::StackName}-ApplicationRoleArn'
+      Name: !Sub '${AWS::StackName}-CognitoAccessRoleArn'
 
-  ApplicationRoleName:
-    Description: Name of the Application IAM Role
-    Value: !Ref ApplicationRole
+  CognitoAccessRoleName:
+    Description: Name of the Cognito Access IAM Role
+    Value: !Ref CognitoAccessRole
     Export:
-      Name: !Sub '${AWS::StackName}-ApplicationRoleName'
-      
-  ApplicationInstanceProfileArn:
-    Description: ARN of the Application Instance Profile
-    Value: !GetAtt ApplicationInstanceProfile.Arn
-    Export:
-      Name: !Sub '${AWS::StackName}-ApplicationInstanceProfileArn'
-      
-  ApplicationInstanceProfileName:
-    Description: Name of the Application Instance Profile
-    Value: !Ref ApplicationInstanceProfile
-    Export:
-      Name: !Sub '${AWS::StackName}-ApplicationInstanceProfileName'
+      Name: !Sub '${AWS::StackName}-CognitoAccessRoleName'

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'CloudFormation template for Cognito resources'
+Description: 'CloudFormation template for Central Authentication Cognito resources'
 
 Parameters:
   Environment:
@@ -14,7 +14,12 @@ Parameters:
   UserPoolName:
     Type: String
     Description: Name of the Cognito User Pool
-    Default: !Sub "${AWS::StackName}-UserPool"
+    Default: "AuthService-UserPool"
+
+  CognitoDomainPrefix:
+    Type: String
+    Description: Prefix for the Cognito domain (e.g., yourbrand-auth)
+    Default: ""
 
   EmailVerificationMessage:
     Type: String
@@ -26,23 +31,18 @@ Parameters:
     Description: Email subject for verification
     Default: "Your verification code"
 
-  CustomDomain:
-    Type: String
-    Description: Custom domain for Cognito (optional)
-    Default: ""
-
   CallbackUrls:
     Type: CommaDelimitedList
     Description: Comma-delimited list of allowed callback URLs
-    Default: ""
+    Default: "http://localhost:3000/callback,http://localhost:3001/api/auth/callback"
 
   LogoutUrls:
     Type: CommaDelimitedList
     Description: Comma-delimited list of allowed logout URLs
-    Default: ""
+    Default: "http://localhost:3000,http://localhost:3001"
 
 Conditions:
-  HasCustomDomain: !Not [!Equals [!Ref CustomDomain, ""]]
+  HasExplicitDomainPrefix: !Not [!Equals [!Ref CognitoDomainPrefix, ""]]
 
 Resources:
   UserPool:
@@ -62,6 +62,12 @@ Resources:
           AttributeDataType: String
           Mutable: true
           Required: false
+        - Name: app_roles
+          AttributeDataType: String
+          Mutable: true
+          Required: false
+          StringAttributeConstraints:
+            MaxLength: '2048'
       Policies:
         PasswordPolicy:
           MinimumLength: 8
@@ -83,13 +89,13 @@ Resources:
             Priority: 1
       UserPoolTags:
         Environment: !Ref Environment
-      DeletionProtection: ACTIVE
+      DeletionProtection: INACTIVE
 
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
     Properties:
       UserPoolId: !Ref UserPool
-      ClientName: !Sub '${UserPoolName}-client'
+      ClientName: !Sub "${UserPoolName}-client"
       GenerateSecret: true
       RefreshTokenValidity: 30
       AccessTokenValidity: 1
@@ -118,42 +124,76 @@ Resources:
         - COGNITO
       PreventUserExistenceErrors: ENABLED
 
+  AdminUserGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: 'Administrators'
+      Description: 'Administrative users of the central auth service'
+      Precedence: 0
+      UserPoolId: !Ref UserPool
+
+  AppUserGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: 'AppUsers'
+      Description: 'General application users'
+      Precedence: 10
+      UserPoolId: !Ref UserPool
+
   UserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
     Properties:
-      Domain: !Sub '${AWS::StackName}-${Environment}'
+      Domain: !If 
+        - HasExplicitDomainPrefix
+        - !Ref CognitoDomainPrefix
+        - !Join 
+          - '-'
+          - - 'auth'
+            - !Select [0, !Split ['-', !Ref AWS::StackName]]
+            - !Ref Environment
+            - !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]
       UserPoolId: !Ref UserPool
-
-  CustomUserPoolDomain:
-    Type: AWS::Cognito::UserPoolDomain
-    Condition: HasCustomDomain
-    Properties:
-      Domain: !Ref CustomDomain
-      UserPoolId: !Ref UserPool
-      CustomDomainConfig:
-        CertificateArn: !ImportValue CognitoCustomDomainCertificate
 
 Outputs:
   UserPoolId:
     Description: ID of the Cognito User Pool
     Value: !Ref UserPool
     Export:
-      Name: !Sub '${AWS::StackName}-UserPoolId'
+      Name: !Sub "${AWS::StackName}-UserPoolId"
 
   UserPoolClientId:
     Description: ID of the Cognito User Pool Client
     Value: !Ref UserPoolClient
     Export:
-      Name: !Sub '${AWS::StackName}-UserPoolClientId'
+      Name: !Sub "${AWS::StackName}-UserPoolClientId"
+
+  UserPoolClientSecretValue:
+    Description: Secret of the Cognito User Pool Client
+    Value: !GetAtt UserPoolClient.ClientSecret
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolClientSecret"
 
   UserPoolDomainName:
     Description: Domain name of the Cognito User Pool
-    Value: !Sub '${AWS::StackName}-${Environment}.auth.${AWS::Region}.amazoncognito.com'
+    Value: !If 
+      - HasExplicitDomainPrefix
+      - !Sub "${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com"
+      - !Join 
+        - '.'
+        - - !Join 
+            - '-'
+            - - 'auth'
+              - !Select [0, !Split ['-', !Ref AWS::StackName]]
+              - !Ref Environment
+              - !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]
+          - 'auth'
+          - !Ref AWS::Region
+          - 'amazoncognito.com'
     Export:
-      Name: !Sub '${AWS::StackName}-UserPoolDomain'
+      Name: !Sub "${AWS::StackName}-UserPoolDomain"
 
   UserPoolArn:
     Description: ARN of the Cognito User Pool
     Value: !GetAtt UserPool.Arn
     Export:
-      Name: !Sub '${AWS::StackName}-UserPoolArn'
+      Name: !Sub "${AWS::StackName}-UserPoolArn"
