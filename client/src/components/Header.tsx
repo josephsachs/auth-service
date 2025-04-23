@@ -6,7 +6,7 @@ import Modal from './Modal';
 import useAuth from '../hooks/useAuth';
 
 const Header: React.FC = () => {
-  const { isAuthenticated, userEmail, login, logout, isLoading } = useAuth();
+  const { isAuthenticated, userEmail, login, logout, isLoading, fetchCsrfToken, csrfToken } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
@@ -15,7 +15,10 @@ const Header: React.FC = () => {
     if (isAuthenticated) {
       setIsDropdownOpen(!isDropdownOpen);
     } else {
+      // Open login modal 
       setIsLoginModalOpen(true);
+      // Fetch CSRF token when opening the login modal
+      fetchCsrfToken();
     }
   };
 
@@ -66,8 +69,8 @@ const Header: React.FC = () => {
   }, [isAuthenticated, isLoginModalOpen]);
 
   return (
-    <header className="bg-purple-900 text-white shadow-md">
-      <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+    <header className="text-white bg-purple-900 shadow-md">
+      <div className="container flex items-center justify-between px-4 py-3 mx-auto">
         <div className="flex items-center">
           <h1 className="text-xl font-bold">Cognito Auth Demo</h1>
         </div>
@@ -96,6 +99,7 @@ const Header: React.FC = () => {
         <LoginForm 
           onSubmit={handleLogin}
           isLoading={isLoading}
+          hasCsrfToken={!!csrfToken}
         />
       </Modal>
     </header>
