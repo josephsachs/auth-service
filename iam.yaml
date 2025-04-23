@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'CloudFormation template for IAM resources - Simplified for Cognito Access'
+Description: 'CloudFormation template for Central Authentication IAM resources'
 
 Parameters:
   Environment:
@@ -11,21 +11,21 @@ Parameters:
       - "prod"
     Description: The environment this template is being deployed to
 
-  UserPoolId:
-    Type: String
-    Description: ID of the Cognito User Pool
-    Default: ""
-    
   ServiceName:
     Type: String
     Description: Name for the central auth service
     Default: "AuthService"
 
+  UserPoolId:
+    Type: String
+    Description: ID of the Cognito User Pool
+    Default: ""
+
 Resources:
-  CognitoAccessRole:
+  AuthServiceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${ServiceName}-${Environment}-CognitoAccessRole'
+      RoleName: !Sub '${ServiceName}-${Environment}-AuthRole'
       Path: '/'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -43,13 +43,15 @@ Resources:
       Tags:
         - Key: Environment
           Value: !Ref Environment
+        - Key: Service
+          Value: !Ref ServiceName
 
   CognitoAccessPolicy:
     Type: AWS::IAM::Policy
     Properties:
       PolicyName: !Sub '${ServiceName}-${Environment}-CognitoPolicy'
       Roles:
-        - !Ref CognitoAccessRole
+        - !Ref AuthServiceRole
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -62,6 +64,9 @@ Resources:
               - cognito-idp:AdminUpdateUserAttributes
               - cognito-idp:AdminConfirmSignUp
               - cognito-idp:AdminRespondToAuthChallenge
+              - cognito-idp:AdminAddUserToGroup
+              - cognito-idp:AdminRemoveUserFromGroup
+              - cognito-idp:AdminListGroupsForUser
               - cognito-idp:GetUser
               - cognito-idp:UpdateUserAttributes
               - cognito-idp:ChangePassword
@@ -69,14 +74,31 @@ Resources:
               - cognito-idp:ConfirmForgotPassword
               - cognito-idp:InitiateAuth
               - cognito-idp:RespondToAuthChallenge
+              - cognito-idp:ListUsers
+              - cognito-idp:ListGroups
+              - cognito-idp:ListUsersInGroup
             Resource: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPoolId}'
+
+  CrossAccountCognitoAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub '${ServiceName}-${Environment}-CrossAccountCognitoPolicy'
+      Roles:
+        - !Ref AuthServiceRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Resource: !Sub 'arn:aws:iam::${AWS::AccountId}:role/${ServiceName}-${Environment}-ClientRole'
 
   ParameterStoreAccessPolicy:
     Type: AWS::IAM::Policy
     Properties:
       PolicyName: !Sub '${ServiceName}-${Environment}-ParameterStorePolicy'
       Roles:
-        - !Ref CognitoAccessRole
+        - !Ref AuthServiceRole
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -92,7 +114,7 @@ Resources:
     Properties:
       PolicyName: !Sub '${ServiceName}-${Environment}-SecretsManagerPolicy'
       Roles:
-        - !Ref CognitoAccessRole
+        - !Ref AuthServiceRole
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -102,15 +124,63 @@ Resources:
               - secretsmanager:DescribeSecret
             Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ServiceName}/${Environment}/*'
 
-Outputs:
-  CognitoAccessRoleArn:
-    Description: ARN of the Cognito Access IAM Role
-    Value: !GetAtt CognitoAccessRole.Arn
-    Export:
-      Name: !Sub '${AWS::StackName}-CognitoAccessRoleArn'
+  ClientApplicationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ServiceName}-${Environment}-ClientRole'
+      Path: '/'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/ReadOnlyAccess'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: !Ref ServiceName
 
-  CognitoAccessRoleName:
-    Description: Name of the Cognito Access IAM Role
-    Value: !Ref CognitoAccessRole
+  ClientCognitoPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub '${ServiceName}-${Environment}-ClientCognitoPolicy'
+      Roles:
+        - !Ref ClientApplicationRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - cognito-idp:InitiateAuth
+              - cognito-idp:RespondToAuthChallenge
+              - cognito-idp:GetUser
+            Resource: !Sub 'arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${UserPoolId}'
+
+Outputs:
+  AuthServiceRoleArn:
+    Description: ARN of the Central Auth IAM Role
+    Value: !GetAtt AuthServiceRole.Arn
     Export:
-      Name: !Sub '${AWS::StackName}-CognitoAccessRoleName'
+      Name: !Sub '${AWS::StackName}-AuthServiceRoleArn'
+
+  AuthServiceRoleName:
+    Description: Name of the Central Auth IAM Role
+    Value: !Ref AuthServiceRole
+    Export:
+      Name: !Sub '${AWS::StackName}-AuthServiceRoleName'
+      
+  ClientApplicationRoleArn:
+    Description: ARN of the Client Application IAM Role
+    Value: !GetAtt ClientApplicationRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ClientApplicationRoleArn'
+      
+  ClientApplicationRoleName:
+    Description: Name of the Client Application IAM Role
+    Value: !Ref ClientApplicationRole
+    Export:
+      Name: !Sub '${AWS::StackName}-ClientApplicationRoleName'

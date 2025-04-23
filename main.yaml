@@ -21,14 +21,19 @@ Parameters:
     Description: Prefix for the Cognito domain (e.g., yourbrand-auth)
     Default: "wilderness-auth"
     
-  LocalDevUrls:
-    Type: CommaDelimitedList
-    Description: Comma-separated list of local development URLs
-    Default: "http://localhost:3000,http://localhost:3001"
+  DevBaseUrl:
+    Type: String
+    Description: Base URL for development environment
+    Default: "http://localhost"
     
-  ProdUrls:
-    Type: CommaDelimitedList
-    Description: Comma-separated list of production URLs (optional for dev)
+  StagingBaseUrl:
+    Type: String
+    Description: Base URL for staging environment
+    Default: ""
+    
+  ProdBaseUrl:
+    Type: String
+    Description: Base URL for production environment
     Default: ""
 
 Resources:
@@ -41,42 +46,25 @@ Resources:
         Environment: !Ref Environment
         UserPoolName: !Sub "${ServiceName}-UserPool"
         CognitoDomainPrefix: !Ref CognitoDomainPrefix
-        # Combine local and prod callbacks/logout URLs
-        CallbackUrls: !Join 
-          - ','
-          - - !Join ['/callback,', !Ref LocalDevUrls]
-            - !If [HasProdUrls, !Join ['/callback,', !Ref ProdUrls], '']
-        LogoutUrls: !Join 
-          - ','
-          - - !Join [',', !Ref LocalDevUrls]
-            - !If [HasProdUrls, !Join [',', !Ref ProdUrls], '']
-
-  # IAM permissions for Cognito access
-  IamStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: CognitoStack
-    Properties:
-      TemplateURL: https://login-service-cf.s3.amazonaws.com/iam.yaml
-      Parameters:
-        Environment: !Ref Environment
-        UserPoolId: !GetAtt CognitoStack.Outputs.UserPoolId
-        ServiceName: !Ref ServiceName
-
-  # Core parameters needed for applications
-  ParamsStack:
-    Type: AWS::CloudFormation::Stack
-    DependsOn: CognitoStack
-    Properties:
-      TemplateURL: https://login-service-cf.s3.amazonaws.com/params-core.yaml
-      Parameters:
-        Environment: !Ref Environment
-        ServiceName: !Ref ServiceName
-        UserPoolId: !GetAtt CognitoStack.Outputs.UserPoolId
-        UserPoolClientId: !GetAtt CognitoStack.Outputs.UserPoolClientId
-        UserPoolClientSecret: !GetAtt CognitoStack.Outputs.UserPoolClientSecretValue
+        CallbackUrls: !If
+          - IsDev
+          - !Sub "${DevBaseUrl}:3000/callback,${DevBaseUrl}:3001/callback"
+          - !If
+            - IsStaging
+            - !Sub "${StagingBaseUrl}:3000/callback,${StagingBaseUrl}:3001/callback"
+            - !Sub "${ProdBaseUrl}:3000/callback,${ProdBaseUrl}:3001/callback"
+        LogoutUrls: !If
+          - IsDev
+          - !Sub "${DevBaseUrl}:3000,${DevBaseUrl}:3001"
+          - !If
+            - IsStaging
+            - !Sub "${StagingBaseUrl}:3000,${StagingBaseUrl}:3001"
+            - !Sub "${ProdBaseUrl}:3000,${ProdBaseUrl}:3001"
 
 Conditions:
-  HasProdUrls: !Not [!Equals [!Select [0, !Ref ProdUrls], ""]]
+  IsDev: !Equals [!Ref Environment, "dev"]
+  IsStaging: !Equals [!Ref Environment, "staging"]
+  IsProd: !Equals [!Ref Environment, "prod"]
 
 Outputs:
   UserPoolId:
@@ -90,7 +78,3 @@ Outputs:
   UserPoolDomainName:
     Description: Domain name of the Cognito User Pool
     Value: !GetAtt CognitoStack.Outputs.UserPoolDomainName
-
-  ParameterPath:
-    Description: Base path for all parameters
-    Value: !GetAtt ParamsStack.Outputs.ParameterPath
