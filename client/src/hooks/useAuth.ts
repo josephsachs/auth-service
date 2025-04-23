@@ -1,11 +1,5 @@
 import { useState, useEffect } from 'react';
-import { 
-  CognitoUserPool,
-  CognitoUser,
-  AuthenticationDetails,
-  CognitoUserSession
-} from 'amazon-cognito-identity-js';
-import { cognitoConfig } from '../config/cognito';
+import { apiConfig } from '../config/api';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -14,19 +8,90 @@ interface AuthState {
   token: string | null;
 }
 
-// Initialize the Cognito User Pool
-const userPool = new CognitoUserPool({
-  UserPoolId: cognitoConfig.userPoolId,
-  ClientId: cognitoConfig.userPoolWebClientId,
-});
-
-// For debugging in development
 if (process.env.NODE_ENV === 'development') {
-  console.log('Cognito Configuration:', {
-    UserPoolId: cognitoConfig.userPoolId,
-    ClientId: cognitoConfig.userPoolWebClientId,
-  });
+  console.log('API Configuration in useAuth:', apiConfig);
 }
+
+const fetchCsrfToken = async (): Promise<string | null> => {
+  try {
+    const response = await fetch(`${apiConfig.baseUrl}${apiConfig.endpoints.login}`, {
+      method: 'GET',
+      credentials: 'include', // Needed for cookies
+      headers: {
+        'Accept': 'application/json',
+        'Origin': window.location.origin,
+      },
+      mode: 'cors'
+    });
+    
+    if (!response.ok) {
+      console.error('Failed to get CSRF token. Status:', response.status);
+      console.error('Response:', await response.text());
+      return null;
+    }
+    
+    const data = await response.json();
+    console.log('Got CSRF token:', data.csrfToken);
+    return data.csrfToken;
+  } catch (error) {
+    console.error('Error fetching CSRF token:', error);
+    return null;
+  }
+};
+
+const performLogin = async (email: string, password: string, csrfToken: string): Promise<{ success: boolean, session?: string }> => {
+  try {
+    console.log('Submitting login request to:', `${apiConfig.baseUrl}${apiConfig.endpoints.login}`);
+    console.log('With payload:', { username: email, password: '***REDACTED***', csrfToken });
+    
+    const response = await fetch(`${apiConfig.baseUrl}${apiConfig.endpoints.login}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Origin': window.location.origin,
+      },
+      body: JSON.stringify({
+        username: email,
+        password: password,
+        csrfToken: csrfToken
+      }),
+      credentials: 'include', // Needed for cookies
+      mode: 'cors'
+    });
+    
+    console.log('Response status:', response.status);
+    const responseHeaders: Record<string, string> = {};
+    response.headers.forEach((value, key) => {
+      responseHeaders[key] = value;
+    });
+    console.log('Response headers:', responseHeaders);
+    
+    const responseText = await response.text();
+    let data;
+    
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      console.error('Response is not valid JSON:', responseText);
+      return { success: false };
+    }
+    
+    if (!response.ok) {
+      console.error('Login failed:', data);
+      return { success: false };
+    }
+    
+    console.log('Login successful, session data:', data);
+    return { 
+      success: true,
+      session: data.session
+    };
+  } catch (error) {
+    console.error('Error during login request:', error);
+    return { success: false };
+  }
+};
 
 const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>({
@@ -36,118 +101,49 @@ const useAuth = () => {
     token: null
   });
 
-  // Check for existing session on mount
   useEffect(() => {
-    const currentUser = userPool.getCurrentUser();
-    
-    if (currentUser) {
-      setAuthState(prev => ({ ...prev, isLoading: true }));
-      
-      currentUser.getSession((err: Error | null, session: CognitoUserSession | null) => {
-        if (err) {
-          console.error('Error getting session:', err);
-          setAuthState({
-            isAuthenticated: false,
-            userEmail: '',
-            isLoading: false,
-            token: null
-          });
-          return;
-        }
-        
-        if (session && session.isValid()) {
-          // Get user attributes to retrieve email
-          currentUser.getUserAttributes((err, attributes) => {
-            if (err) {
-              console.error('Error getting user attributes:', err);
-              return;
-            }
-            
-            // Find the email attribute
-            const emailAttribute = attributes?.find(attr => attr.getName() === 'email');
-            const email = emailAttribute ? emailAttribute.getValue() : '';
-            
-            setAuthState({
-              isAuthenticated: true,
-              userEmail: email,
-              isLoading: false,
-              token: session.getIdToken().getJwtToken()
-            });
-          });
-        } else {
-          setAuthState({
-            isAuthenticated: false,
-            userEmail: '',
-            isLoading: false,
-            token: null
-          });
-        }
-      });
-    }
+    // This would be where we'd check for an existing session token
+    // For now, we're just initializing with no authentication
+    console.log('useAuth: initializing auth state');
   }, []);
 
   const login = async (email: string, password: string) => {
     setAuthState(prev => ({ ...prev, isLoading: true }));
     
-    return new Promise<boolean>((resolve) => {
-      // Use the default authentication flow (SRP) by not specifying AuthFlow
-      const authenticationDetails = new AuthenticationDetails({
-        Username: email,
-        Password: password
+    try {
+      const csrfToken = await fetchCsrfToken();
+      
+      if (!csrfToken) {
+        setAuthState(prev => ({ ...prev, isLoading: false }));
+        return false;
+      }
+      
+      const loginResult = await performLogin(email, password, csrfToken);
+      
+      if (!loginResult.success) {
+        setAuthState(prev => ({ ...prev, isLoading: false }));
+        return false;
+      }
+      
+      setAuthState({
+        isAuthenticated: true,
+        userEmail: email,
+        isLoading: false,
+        token: loginResult.session || null
       });
       
-      const userData = {
-        Username: email,
-        Pool: userPool
-      };
-      
-      const cognitoUser = new CognitoUser(userData);
-      
-      cognitoUser.authenticateUser(authenticationDetails, {
-        onSuccess: (session) => {
-          const token = session.getIdToken().getJwtToken();
-          
-          setAuthState({
-            isAuthenticated: true,
-            userEmail: email,
-            isLoading: false,
-            token
-          });
-          
-          resolve(true);
-        },
-        onFailure: (err) => {
-          console.error('Authentication failed:', err);
-          
-          setAuthState(prev => ({ 
-            ...prev, 
-            isLoading: false
-          }));
-          
-          resolve(false);
-        },
-        newPasswordRequired: (userAttributes, requiredAttributes) => {
-          // Handle new password required challenge
-          console.log('New password required');
-          
-          // For this demo, we'll just fail the login and inform the user
-          setAuthState(prev => ({ 
-            ...prev, 
-            isLoading: false
-          }));
-          
-          resolve(false);
-        }
-      });
-    });
+      return true;
+    } catch (error) {
+      console.error('Login error:', error);
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+      return false;
+    }
   };
 
   const logout = () => {
-    const currentUser = userPool.getCurrentUser();
-    
-    if (currentUser) {
-      currentUser.signOut();
-    }
+    // For now, just reset the auth state
+    // Later we could call the logout endpoint
+    console.log('Logging out...');
     
     setAuthState({
       isAuthenticated: false,

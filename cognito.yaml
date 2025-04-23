@@ -41,6 +41,11 @@ Parameters:
     Description: List of allowed logout URLs
     Default: "http://localhost:3000"
 
+  ServiceName:
+    Type: String
+    Description: Name for the service (used for secret naming)
+    Default: "AuthService"
+
 Conditions:
   HasExplicitDomainPrefix: !Not [!Equals [!Ref CognitoDomainPrefix, ""]]
 
@@ -125,6 +130,19 @@ Resources:
         - COGNITO
       PreventUserExistenceErrors: ENABLED
 
+  # Secret to store the Cognito Client Secret
+  UserPoolSecretHash:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "${ServiceName}/${Environment}/UserPoolClientSecret"
+      Description: "Secret hash for Cognito User Pool Client"
+      SecretString: '{"clientSecret": ""}'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: !Ref ServiceName
+
   AdminUserGroup:
     Type: AWS::Cognito::UserPoolGroup
     Properties:
@@ -173,6 +191,12 @@ Outputs:
     Value: !GetAtt UserPoolClient.ClientSecret
     Export:
       Name: !Sub "${AWS::StackName}-UserPoolClientSecret"
+
+  UserPoolSecretHashArn:
+    Description: ARN of the Secret Manager secret for the Cognito User Pool Client Secret
+    Value: !Ref UserPoolSecretHash
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolSecretHashArn"
 
   UserPoolDomainName:
     Description: Domain name of the Cognito User Pool
