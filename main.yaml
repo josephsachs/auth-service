@@ -59,8 +59,8 @@ Resources:
       TemplateURL: https://login-service-cf.s3.amazonaws.com/iam.yaml
       Parameters:
         Environment: !Ref Environment
-        ServiceName: !Ref ServiceName
         UserPoolId: !GetAtt CognitoStack.Outputs.UserPoolId
+        ServiceName: !Ref ServiceName
 
   # Core parameters needed for applications
   ParamsStack:

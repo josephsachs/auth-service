@@ -20,6 +20,16 @@ Parameters:
     Type: String
     Description: ID of the Cognito User Pool
     Default: ""
+    
+  UserPoolClientId:
+    Type: String
+    Description: ID of the Cognito User Pool Client
+    Default: ""
+    
+  UserPoolClientSecret:
+    Type: String
+    Description: Secret of the Cognito User Pool Client
+    Default: ""
 
 Resources:
   AuthServiceRole:

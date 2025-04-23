@@ -32,14 +32,14 @@ Parameters:
     Default: "Your verification code"
 
   CallbackUrls:
-    Type: CommaDelimitedList
-    Description: Comma-delimited list of allowed callback URLs
-    Default: "http://localhost:3000/callback,http://localhost:3001/api/auth/callback"
+    Type: String
+    Description: List of allowed callback URLs
+    Default: "http://localhost:3000/callback"
 
   LogoutUrls:
-    Type: CommaDelimitedList
-    Description: Comma-delimited list of allowed logout URLs
-    Default: "http://localhost:3000,http://localhost:3001"
+    Type: String
+    Description: List of allowed logout URLs
+    Default: "http://localhost:3000"
 
 Conditions:
   HasExplicitDomainPrefix: !Not [!Equals [!Ref CognitoDomainPrefix, ""]]
@@ -118,8 +118,9 @@ Resources:
         - openid
         - profile
         - aws.cognito.signin.user.admin
-      CallbackURLs: !Ref CallbackUrls
-      LogoutURLs: !Ref LogoutUrls
+      # Use proper list format by splitting the string parameter
+      CallbackURLs: !Split [",", !Ref CallbackUrls]
+      LogoutURLs: !Split [",", !Ref LogoutUrls]
       SupportedIdentityProviders:
         - COGNITO
       PreventUserExistenceErrors: ENABLED

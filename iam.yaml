@@ -15,12 +15,17 @@ Parameters:
     Type: String
     Description: ID of the Cognito User Pool
     Default: ""
+    
+  ServiceName:
+    Type: String
+    Description: Name for the central auth service
+    Default: "AuthService"
 
 Resources:
   CognitoAccessRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'CognitoAuthDemo-${Environment}-CognitoAccessRole'
+      RoleName: !Sub '${ServiceName}-${Environment}-CognitoAccessRole'
       Path: '/'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
@@ -42,7 +47,7 @@ Resources:
   CognitoAccessPolicy:
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: !Sub 'CognitoAuthDemo-${Environment}-CognitoPolicy'
+      PolicyName: !Sub '${ServiceName}-${Environment}-CognitoPolicy'
       Roles:
         - !Ref CognitoAccessRole
       PolicyDocument:
@@ -69,7 +74,7 @@ Resources:
   ParameterStoreAccessPolicy:
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: !Sub 'CognitoAuthDemo-${Environment}-ParameterStorePolicy'
+      PolicyName: !Sub '${ServiceName}-${Environment}-ParameterStorePolicy'
       Roles:
         - !Ref CognitoAccessRole
       PolicyDocument:
@@ -80,12 +85,12 @@ Resources:
               - ssm:GetParameter
               - ssm:GetParameters
               - ssm:GetParametersByPath
-            Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/CognitoAuthDemo/${Environment}/*'
+            Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/${ServiceName}/${Environment}/*'
             
   SecretsManagerAccessPolicy:
     Type: AWS::IAM::Policy
     Properties:
-      PolicyName: !Sub 'CognitoAuthDemo-${Environment}-SecretsManagerPolicy'
+      PolicyName: !Sub '${ServiceName}-${Environment}-SecretsManagerPolicy'
       Roles:
         - !Ref CognitoAccessRole
       PolicyDocument:
@@ -95,7 +100,7 @@ Resources:
             Action:
               - secretsmanager:GetSecretValue
               - secretsmanager:DescribeSecret
-            Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:CognitoAuthDemo/${Environment}/*'
+            Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ServiceName}/${Environment}/*'
 
 Outputs:
   CognitoAccessRoleArn:
