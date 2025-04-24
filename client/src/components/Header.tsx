@@ -5,6 +5,7 @@ import LoginForm from './LoginForm';
 import NewPasswordForm from './NewPasswordForm';
 import Modal from './Modal';
 import { useAuthContext } from '../context/AuthContext';
+import { apiConfig } from '../config/api';
 
 const Header: React.FC = () => {
   const { isAuthenticated, userEmail, isLoading, login, logout } = useAuthContext();
@@ -14,10 +15,11 @@ const Header: React.FC = () => {
   const [session, setSession] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [hasCsrfToken, setHasCsrfToken] = useState(false);
+  const [csrfToken, setCsrfToken] = useState<string | null>(null);
 
   const fetchCsrfToken = async () => {
     try {
-      const response = await fetch('/api/login', {
+      const response = await fetch(`${apiConfig.baseUrl}${apiConfig.endpoints.login}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -33,6 +35,7 @@ const Header: React.FC = () => {
       }
       
       const data = await response.json();
+      setCsrfToken(data.csrfToken);
       setHasCsrfToken(true);
       return true;
     } catch (error) {
@@ -57,7 +60,7 @@ const Header: React.FC = () => {
 
   const handleLogin = async (email: string, password: string) => {
     try {
-      const response = await fetch('/api/login', {
+      const response = await fetch(`${apiConfig.baseUrl}${apiConfig.endpoints.login}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -65,10 +68,7 @@ const Header: React.FC = () => {
         body: JSON.stringify({ 
           username: email, 
           password: password,
-          csrfToken: document.cookie
-            .split('; ')
-            .find(row => row.startsWith('csrf_token='))
-            ?.split('=')[1] 
+          csrfToken: csrfToken
         }),
         credentials: 'include'
       });
@@ -100,7 +100,7 @@ const Header: React.FC = () => {
     }
     
     try {
-      const response = await fetch('/api/challenge', {
+      const response = await fetch(`${apiConfig.baseUrl}${apiConfig.endpoints.challenge}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
