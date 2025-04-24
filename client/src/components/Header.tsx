@@ -8,7 +8,7 @@ import { useAuthContext } from '../context/AuthContext';
 import { apiConfig } from '../config/api';
 
 const Header: React.FC = () => {
-  const { isAuthenticated, userEmail, isLoading, login, logout } = useAuthContext();
+  const { isAuthenticated, userEmail, isLoading, verifySession } = useAuthContext();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [authState, setAuthState] = useState<'login' | 'newPassword'>('login');
@@ -16,6 +16,7 @@ const Header: React.FC = () => {
   const [username, setUsername] = useState<string | null>(null);
   const [hasCsrfToken, setHasCsrfToken] = useState(false);
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
+  const { logout } = useAuthContext();
 
   const fetchCsrfToken = async () => {
     try {
@@ -82,11 +83,20 @@ const Header: React.FC = () => {
         return true; // Keep modal open
       }
       
-      const success = await login(email, password);
-      if (success) {
-        closeModal();
+      if (data.success && data.session) {
+        // Store the session directly
+        localStorage.setItem('session_token', data.session);
+        
+        // Verify the session to update auth state
+        const verifySuccess = await verifySession();
+        
+        if (verifySuccess) {
+          closeModal();
+          return true;
+        }
       }
-      return success;
+      
+      return false;
     } catch (error) {
       console.error('Login error:', error);
       return false;
@@ -119,6 +129,9 @@ const Header: React.FC = () => {
       if (data.success) {
         if (data.session) {
           localStorage.setItem('session_token', data.session);
+          
+          // Verify the session to update auth state
+          await verifySession();
         }
         
         window.location.reload();

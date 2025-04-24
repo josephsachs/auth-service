@@ -102,40 +102,57 @@ const useAuth = () => {
     }
   };
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (
+    username: string, 
+    password?: string, 
+    sessionToken?: string
+  ): Promise<boolean> => {
     setAuthState({ status: 'authenticating' });
     
     try {
-      const result = await performLogin(username, password);
-      
-      if (!result.success) {
-        setAuthState({ status: 'unauthenticated', isLoading: false });
-        return false;
-      }
-      
-      if (result.challengeName === 'NEW_PASSWORD_REQUIRED') {
-        console.log('New password required for user');
-        setAuthState({ 
-          status: 'newPasswordRequired', 
-          username, 
-          session: result.session 
+      // If sessionToken is provided, use it directly
+      if (sessionToken) {
+        setAuthState({
+          status: 'authenticated',
+          userEmail: username
         });
-        return true; // Return true since auth flow is proceeding as expected
+        
+        localStorage.setItem('session_token', sessionToken);
+        return true;
       }
       
-      setAuthState({
-        status: 'authenticated',
-        userEmail: username
-      });
-      
-      if (result.session) {
-        localStorage.setItem('session_token', result.session);
+      // Otherwise, fall back to the original login flow (if needed)
+      if (password) {
+        const result = await performLogin(username, password);
+        
+        if (!result.success) {
+          setAuthState({ status: 'unauthenticated', isLoading: false });
+          return false;
+        }
+        
+        if (result.challengeName === 'NEW_PASSWORD_REQUIRED') {
+          setAuthState({ 
+            status: 'newPasswordRequired', 
+            username, 
+            session: result.session 
+          });
+          return true;
+        }
+        
+        setAuthState({
+          status: 'authenticated',
+          userEmail: username
+        });
+        
+        if (result.session) {
+          localStorage.setItem('session_token', result.session);
+        }
+        
+        return true;
       }
       
-      // Clear CSRF token after successful authentication
-      setCsrfToken(null);
-      
-      return true;
+      setAuthState({ status: 'unauthenticated', isLoading: false });
+      return false;
     } catch (error) {
       console.error('Login error:', error);
       setAuthState({ status: 'unauthenticated', isLoading: false });
