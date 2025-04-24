@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateUser } from '@/lib/cognito';
-import { createUserSession, generateCsrfToken, verifyCsrfToken } from '@/lib/session';
+import { cognitoService, isChallengeResult } from '@/lib/services/cognito';
+import { generateCsrfToken, verifyCsrfToken } from '@/lib/session';
 
 function logError(error: unknown, context: string) {
   console.error(`[${context}]`, error);
@@ -41,20 +41,32 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const authResult = await authenticateUser(username, password);
+    // Authenticate using our service layer
+    const authResult = await cognitoService.authenticateUser(username, password);
     
-    const session = createUserSession(
-      authResult.userId,
-      authResult.userId, // Using userId as email placeholder
-      {
+    // If we hit a challenge (using type guard from our types)
+    if (isChallengeResult(authResult)) {
+      return NextResponse.json({
+        success: true,
+        challengeName: authResult.challengeName,
+        session: authResult.session,
+        challengeParams: authResult.challengeParams
+      });
+    }
+    
+    // Regular authentication flow - create session
+    const session = cognitoService.createSession({
+      userId: authResult.userId,
+      email: authResult.userId, // Using userId as email placeholder
+      tokens: {
         accessToken: authResult.accessToken || '',
         idToken: authResult.idToken || '',
         refreshToken: authResult.refreshToken || ''
       },
-      authResult.expiresIn
-    );
+      expiresIn: authResult.expiresIn || 3600
+    });
     
-    const response = NextResponse.json({ session: session.token });
+    const response = NextResponse.json({ success: true, session: session.token });
     
     response.cookies.delete('csrf_token');
     

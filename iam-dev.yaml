@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Creates an IAM User with read-only access to a specific secret in Secrets Manager for local development'
+
+Parameters:
+  SecretName:
+    Type: String
+    Description: The name of the secret in Secrets Manager that needs to be accessed
+    Default: "my-app-secret"
+  
+  SecretPrefix:
+    Type: String
+    Description: Prefix for the secret if using a naming convention (optional)
+    Default: ""
+    
+  DeveloperUsername:
+    Type: String
+    Description: Username for the IAM user
+    Default: "LocalDevUser"
+    
+Resources:
+  DeveloperUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Ref DeveloperUsername
+      Path: /
+      ManagedPolicyArns:
+        - !Ref DevUserPolicy
+      Tags:
+        - Key: Purpose
+          Value: LocalDevelopment
+        - Key: TemporaryResource
+          Value: "true"
+
+  DevUserSecretsPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${DeveloperUsername}SecretsAccess"
+      Description: Allows read-only access to all secrets in Secrets Manager
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'secretsmanager:GetSecretValue'
+              - 'secretsmanager:DescribeSecret'
+              - 'secretsmanager:ListSecrets'
+            Resource: !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:*'
+
+  DevUserUserPoolAppClientAdminAuth:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub "${DeveloperUsername}UserPoolAppClientAdminAuth"
+      Description: Allows performing server-side type authentication
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'cognito-idp:AdminInitiateAuth'
+              - 'cognito-idp:AdminRespondToAuthChallenge'
+              - 'cognito-idp:AdminCreateUser'
+              - 'cognito-idp:AdminGetUser'
+              - 'cognito-idp:AdminSetUserPassword'
+              - 'cognito-idp:AdminUpdateUserAttributes'
+              - 'cognito-idp:AdminDeleteUserAttributes'
+              - 'cognito-idp:AdminDisableUser'
+              - 'cognito-idp:AdminEnableUser'
+              - 'cognito-idp:AdminUserGlobalSignOut'
+              - 'cognito-idp:AdminListGroupsForUser'
+              - 'cognito-idp:AdminAddUserToGroup'
+              - 'cognito-idp:AdminRemoveUserFromGroup'
+              - 'cognito-idp:ListUsers'
+              - 'cognito-idp:ListUsersInGroup'
+              - 'cognito-idp:ListGroups'
+              - 'cognito-idp:DescribeUserPool'
+              - 'cognito-idp:DescribeUserPoolClient'
+              - cognito-idp:ListUserPoolClients'
+            Resource: !Sub 'arn:aws:cognito-idp:*:*:userpool/*'
+          - Effect: Allow
+            Action:
+              - 'cognito-identity:DescribeIdentityPool'
+              - 'cognito-identity:GetIdentityPoolRoles'
+              - 'cognito-identity:GetId'
+              - 'cognito-identity:GetCredentialsForIdentity'
+            Resource: !Sub 'arn:aws:cognito-identity:*:*:identitypool/*''
+          - Effect: Allow
+            Action:
+              - 'cognito-idp:DescribeUserPoolDomain'
+              - 'cognito-idp:DescribeResourceServer'
+            Resource: !Sub '*'
+          - Effect: Allow
+            Action: 
+              - 'iam:PassRole'
+            Resource: !Sub 'arn:aws:iam::*:role/*'
+
+  DeveloperUserAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      Status: Active
+      UserName: !Ref DeveloperUser
+
+Conditions:
+  HasSecretPrefix: !Not [!Equals [!Ref SecretPrefix, ""]]
+
+Outputs:
+  DeveloperUserName:
+    Description: Name of the IAM user created
+    Value: !Ref DeveloperUser
+  
+  AccessKeyID:
+    Description: Access Key ID for the developer user
+    Value: !Ref DeveloperUserAccessKey
+  
+  AccessKeySecretRetrieval:
+    Description: Instructions to retrieve the secret access key (it is only shown once during creation)
+    Value: "IMPORTANT: The secret access key is ONLY available when the access key is first created. Use the AWS CLI or console to retrieve it: aws iam create-access-key --user-name LocalDevUser"
+    
+  ConfigureAWSCLICommand:
+    Description: Command to configure AWS CLI with these credentials
+    Value: !Sub >
+      aws configure set aws_access_key_id ${DeveloperUserAccessKey} --profile local-dev && 
+      aws configure set region ${AWS::Region} --profile local-dev

@@ -2,37 +2,56 @@ import React, { useState, useEffect } from 'react';
 import UserButton from './UserButton';
 import UserDropdown from './UserDropdown';
 import LoginForm from './LoginForm';
+import NewPasswordForm from './NewPasswordForm';
 import Modal from './Modal';
 import useAuth from '../hooks/useAuth';
 
 const Header: React.FC = () => {
-  const { isAuthenticated, userEmail, login, logout, isLoading, fetchCsrfToken, csrfToken } = useAuth();
+  const { 
+    authState, 
+    isAuthenticated, 
+    userEmail, 
+    isLoading, 
+    csrfToken, 
+    login, 
+    logout, 
+    submitNewPassword,
+    fetchCsrfToken 
+  } = useAuth();
+  
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Handle button click based on auth state
   const handleUserButtonClick = () => {
     if (isAuthenticated) {
       setIsDropdownOpen(!isDropdownOpen);
     } else {
-      // Open login modal 
-      setIsLoginModalOpen(true);
+      // Open modal
+      setIsModalOpen(true);
       // Fetch CSRF token when opening the login modal
       fetchCsrfToken();
     }
   };
 
-  // Close login modal with fade animation
-  const closeLoginModal = () => {
-    setIsLoginModalOpen(false);
+  // Close modal with fade animation
+  const closeModal = () => {
+    setIsModalOpen(false);
   };
 
   // Handle login form submission
   const handleLogin = async (email: string, password: string) => {
-    const success = await login(email, password);
+    await login(email, password);
+    // Modal will stay open if we transition to newPasswordRequired state
+  };
+
+  // Handle new password submission
+  const handleNewPasswordSubmit = async (newPassword: string): Promise<boolean> => {
+    const success = await submitNewPassword(newPassword);
     if (success) {
-      // Modal will close automatically when auth state changes
+      // Modal will close automatically when auth state changes to authenticated
     }
+    return success;
   };
 
   // Handle logout
@@ -61,12 +80,43 @@ const Header: React.FC = () => {
     };
   }, [isDropdownOpen]);
   
-  // Close modal after successful login
+  // Close modal after successful authentication
   useEffect(() => {
-    if (isAuthenticated && isLoginModalOpen) {
-      closeLoginModal();
+    if (isAuthenticated && isModalOpen) {
+      closeModal();
     }
-  }, [isAuthenticated, isLoginModalOpen]);
+  }, [isAuthenticated, isModalOpen]);
+
+  // Determine modal title based on auth state
+  const getModalTitle = () => {
+    switch (authState.status) {
+      case 'newPasswordRequired':
+        return 'Set New Password';
+      default:
+        return 'Sign In';
+    }
+  };
+
+  // Render the appropriate form based on auth state
+  const renderAuthForm = () => {
+    switch (authState.status) {
+      case 'newPasswordRequired':
+        return (
+          <NewPasswordForm 
+            onSubmit={handleNewPasswordSubmit}
+            isLoading={isLoading}
+          />
+        );
+      default:
+        return (
+          <LoginForm 
+            onSubmit={handleLogin}
+            isLoading={isLoading}
+            hasCsrfToken={!!csrfToken}
+          />
+        );
+    }
+  };
 
   return (
     <header className="text-white bg-purple-900 shadow-md">
@@ -90,17 +140,13 @@ const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* Login Modal */}
+      {/* Auth Modal - Shows login or new password form depending on state */}
       <Modal
-        isOpen={isLoginModalOpen}
-        onClose={closeLoginModal}
-        title="Sign In"
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        title={getModalTitle()}
       >
-        <LoginForm 
-          onSubmit={handleLogin}
-          isLoading={isLoading}
-          hasCsrfToken={!!csrfToken}
-        />
+        {renderAuthForm()}
       </Modal>
     </header>
   );

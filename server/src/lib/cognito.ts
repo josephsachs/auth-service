@@ -6,7 +6,7 @@ import {
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 import crypto from 'crypto';
 
-const secretsClient = new SecretsManagerClient({ region: process.env.AWS_REGION });
+const secretsClient = new SecretsManagerClient({ region: process.env.AWS_REGION  });
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
 
 async function getClientSecret() {
@@ -24,7 +24,8 @@ async function getClientSecret() {
   
   try {
     const secretData = JSON.parse(response.SecretString);
-    return secretData.clientSecret;
+
+    return secretData.SecretHash;
   } catch {
     throw new Error("Invalid secret format");
   }
@@ -63,6 +64,7 @@ export async function authenticateUser(username: string, password: string) {
     const response = await cognitoClient.send(command);
     
     if (!response.AuthenticationResult) {
+      console.log(response);
       throw new Error("Authentication failed");
     }
     

@@ -6,6 +6,7 @@ export const apiConfig = {
     login: '/api/login',
     logout: '/api/logout',
     verify: '/api/verify',
+    respondToChallenge: '/api/challenge'
   }
 };
 
