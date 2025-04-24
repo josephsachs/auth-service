@@ -4,72 +4,141 @@ import UserDropdown from './UserDropdown';
 import LoginForm from './LoginForm';
 import NewPasswordForm from './NewPasswordForm';
 import Modal from './Modal';
-import useAuth from '../hooks/useAuth';
+import { useAuthContext } from '../context/AuthContext';
 
 const Header: React.FC = () => {
-  const { 
-    authState, 
-    isAuthenticated, 
-    userEmail, 
-    isLoading, 
-    csrfToken, 
-    login, 
-    logout, 
-    submitNewPassword,
-    fetchCsrfToken 
-  } = useAuth();
-  
+  const { isAuthenticated, userEmail, isLoading, login, logout } = useAuthContext();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [authState, setAuthState] = useState<'login' | 'newPassword'>('login');
+  const [session, setSession] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
+  const [hasCsrfToken, setHasCsrfToken] = useState(false);
 
-  // Handle button click based on auth state
+  const fetchCsrfToken = async () => {
+    try {
+      const response = await fetch('/api/login', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Origin': window.location.origin,
+        },
+        mode: 'cors'
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to get CSRF token');
+        return false;
+      }
+      
+      const data = await response.json();
+      setHasCsrfToken(true);
+      return true;
+    } catch (error) {
+      console.error('Error fetching CSRF token:', error);
+      return false;
+    }
+  };
+
   const handleUserButtonClick = () => {
     if (isAuthenticated) {
       setIsDropdownOpen(!isDropdownOpen);
     } else {
-      // Open modal
       setIsModalOpen(true);
-      // Fetch CSRF token when opening the login modal
+      setAuthState('login');
       fetchCsrfToken();
     }
   };
 
-  // Close modal with fade animation
   const closeModal = () => {
     setIsModalOpen(false);
   };
 
-  // Handle login form submission
   const handleLogin = async (email: string, password: string) => {
-    await login(email, password);
-    // Modal will stay open if we transition to newPasswordRequired state
-  };
-
-  // Handle new password submission
-  const handleNewPasswordSubmit = async (newPassword: string): Promise<boolean> => {
-    const success = await submitNewPassword(newPassword);
-    if (success) {
-      // Modal will close automatically when auth state changes to authenticated
+    try {
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          username: email, 
+          password: password,
+          csrfToken: document.cookie
+            .split('; ')
+            .find(row => row.startsWith('csrf_token='))
+            ?.split('=')[1] 
+        }),
+        credentials: 'include'
+      });
+      
+      const data = await response.json();
+      
+      if (data.challengeName === 'NEW_PASSWORD_REQUIRED') {
+        setAuthState('newPassword');
+        setSession(data.session);
+        setUsername(email);
+        return true; // Keep modal open
+      }
+      
+      const success = await login(email, password);
+      if (success) {
+        closeModal();
+      }
+      return success;
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
     }
-    return success;
   };
 
-  // Handle logout
-  const handleLogout = () => {
-    logout();
-    setIsDropdownOpen(false);
+  const handleNewPasswordSubmit = async (newPassword: string) => {
+    if (!session || !username) {
+      console.error('Missing session or username for password change');
+      return false;
+    }
+    
+    try {
+      const response = await fetch('/api/challenge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          challengeName: 'NEW_PASSWORD_REQUIRED',
+          username,
+          session,
+          newPassword
+        }),
+        credentials: 'include'
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        if (data.session) {
+          localStorage.setItem('session_token', data.session);
+        }
+        
+        window.location.reload();
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error submitting new password:', error);
+      return false;
+    }
   };
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     if (!isDropdownOpen) return;
     
     const handleClickOutside = (event: MouseEvent) => {
-      // Close dropdown when clicking outside
       setIsDropdownOpen(false);
     };
     
-    // Add event listener with a slight delay to avoid immediate trigger
     const timeoutId = setTimeout(() => {
       document.addEventListener('click', handleClickOutside);
     }, 100);
@@ -80,43 +149,11 @@ const Header: React.FC = () => {
     };
   }, [isDropdownOpen]);
   
-  // Close modal after successful authentication
   useEffect(() => {
-    if (isAuthenticated && isModalOpen) {
+    if (isAuthenticated && isModalOpen && authState === 'login') {
       closeModal();
     }
-  }, [isAuthenticated, isModalOpen]);
-
-  // Determine modal title based on auth state
-  const getModalTitle = () => {
-    switch (authState.status) {
-      case 'newPasswordRequired':
-        return 'Set New Password';
-      default:
-        return 'Sign In';
-    }
-  };
-
-  // Render the appropriate form based on auth state
-  const renderAuthForm = () => {
-    switch (authState.status) {
-      case 'newPasswordRequired':
-        return (
-          <NewPasswordForm 
-            onSubmit={handleNewPasswordSubmit}
-            isLoading={isLoading}
-          />
-        );
-      default:
-        return (
-          <LoginForm 
-            onSubmit={handleLogin}
-            isLoading={isLoading}
-            hasCsrfToken={!!csrfToken}
-          />
-        );
-    }
-  };
+  }, [isAuthenticated, isModalOpen, authState]);
 
   return (
     <header className="text-white bg-purple-900 shadow-md">
@@ -135,18 +172,29 @@ const Header: React.FC = () => {
           <UserDropdown 
             email={userEmail}
             isOpen={isAuthenticated && isDropdownOpen}
-            onLogout={handleLogout}
+            onLogout={logout}
           />
         </div>
       </div>
 
-      {/* Auth Modal - Shows login or new password form depending on state */}
+      {/* Auth Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={closeModal}
-        title={getModalTitle()}
+        title={authState === 'login' ? "Sign In" : "Set New Password"}
       >
-        {renderAuthForm()}
+        {authState === 'login' ? (
+          <LoginForm 
+            onSubmit={handleLogin}
+            isLoading={isLoading}
+            hasCsrfToken={hasCsrfToken}
+          />
+        ) : (
+          <NewPasswordForm 
+            onSubmit={handleNewPasswordSubmit}
+            isLoading={isLoading}
+          />
+        )}
       </Modal>
     </header>
   );

@@ -21,7 +21,6 @@ async function handleNewPasswordChallenge(params: NewPasswordChallengeParams): P
   try {
     const { username, session, newPassword } = params;
     
-    // Get configuration
     const clientId = process.env.COGNITO_CLIENT_ID;
     const userPoolId = process.env.COGNITO_USER_POOL_ID;
     
@@ -29,11 +28,9 @@ async function handleNewPasswordChallenge(params: NewPasswordChallengeParams): P
       throw new Error("Missing Cognito configuration");
     }
     
-    // Get client secret
     const clientSecret = await authService.getClientSecret();
     const secretHash = authService.calculateSecretHash(username, clientId, clientSecret);
     
-    // Setup challenge response parameters
     const challengeParams: AdminRespondToAuthChallengeCommandInput = {
       UserPoolId: userPoolId,
       ClientId: clientId,
@@ -46,11 +43,9 @@ async function handleNewPasswordChallenge(params: NewPasswordChallengeParams): P
       Session: session
     };
     
-    // Send challenge response
     const command = new AdminRespondToAuthChallengeCommand(challengeParams);
     const response = await cognitoClient.send(command);
     
-    // Handle challenge response result
     if (!response.AuthenticationResult) {
       return {
         success: false,
@@ -58,7 +53,6 @@ async function handleNewPasswordChallenge(params: NewPasswordChallengeParams): P
       };
     }
     
-    // Map response to standard format
     const authResult: AuthResult = {
       userId: username,
       accessToken: response.AuthenticationResult.AccessToken,

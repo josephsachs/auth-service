@@ -3,7 +3,6 @@ import {
   ChallengeNameType 
 } from "@aws-sdk/client-cognito-identity-provider";
 
-// Basic authentication result
 export interface AuthResult {
   userId: string;
   accessToken?: string;
@@ -12,7 +11,6 @@ export interface AuthResult {
   expiresIn?: number;
 }
 
-// Challenge result from Cognito
 export interface ChallengeResult {
   challengeName: ChallengeNameType;
   session: string;
@@ -20,26 +18,22 @@ export interface ChallengeResult {
   userId: string;
 }
 
-// Type guard for challenge result
 export function isChallengeResult(result: AuthResult | ChallengeResult): result is ChallengeResult {
   return 'challengeName' in result && 'session' in result;
 }
 
-// NEW_PASSWORD_REQUIRED challenge parameters
 export interface NewPasswordChallengeParams {
   username: string;
   session: string;
   newPassword: string;
 }
 
-// Response to any challenge
 export interface ChallengeResponse {
   success: boolean;
   authResult?: AuthResult;
   error?: string;
 }
 
-// Session creation parameters
 export interface SessionParams {
   userId: string;
   email: string;

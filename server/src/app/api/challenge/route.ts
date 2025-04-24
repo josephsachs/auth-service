@@ -17,7 +17,6 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Handle the challenge
     const challengeResponse = await cognitoService.respondToChallenge(challengeName, {
       username,
       session,
@@ -31,7 +30,6 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Create session from the authentication result
     if (challengeResponse.authResult) {
       const userSession = cognitoService.createSessionFromChallenge(
         username,

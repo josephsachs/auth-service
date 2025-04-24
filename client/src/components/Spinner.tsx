@@ -9,14 +9,12 @@ const Spinner: React.FC<SpinnerProps> = ({
   size = 'md', 
   color = 'white' 
 }) => {
-  // Size classes
   const sizeClasses = {
     sm: 'w-4 h-4',
     md: 'w-5 h-5',
     lg: 'w-6 h-6'
   };
   
-  // Color classes
   const colorClasses = {
     white: 'border-white border-t-transparent',
     purple: 'border-purple-700 border-t-transparent'

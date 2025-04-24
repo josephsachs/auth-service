@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid';
-import { createSession, getSession, deleteSession } from './db';
+import { createSession, getSession, deleteSession } from '../../db';
 
 export function generateSessionToken() {
   return nanoid(32);

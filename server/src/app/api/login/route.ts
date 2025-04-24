@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cognitoService, isChallengeResult } from '@/lib/services/cognito';
-import { generateCsrfToken, verifyCsrfToken } from '@/lib/session';
+import { generateCsrfToken, verifyCsrfToken } from '@/lib/services/session/sessionFunctions';
 
 function logError(error: unknown, context: string) {
   console.error(`[${context}]`, error);
@@ -41,10 +41,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Authenticate using our service layer
     const authResult = await cognitoService.authenticateUser(username, password);
     
-    // If we hit a challenge (using type guard from our types)
     if (isChallengeResult(authResult)) {
       return NextResponse.json({
         success: true,
@@ -54,7 +52,6 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    // Regular authentication flow - create session
     const session = cognitoService.createSession({
       userId: authResult.userId,
       email: authResult.userId, // Using userId as email placeholder

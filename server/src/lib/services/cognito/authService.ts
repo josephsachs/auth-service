@@ -8,9 +8,8 @@ import {
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 import crypto from 'crypto';
 import { AuthResult, ChallengeResult, SessionParams } from './types';
-import { createUserSession } from '@/lib/session';
+import { createUserSession } from '@/lib/services/session/sessionFunctions';
 
-// Initialize clients
 const secretsClient = new SecretsManagerClient({ region: process.env.AWS_REGION });
 const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
 
@@ -113,7 +112,6 @@ async function authenticateUser(username: string, password: string): Promise<Aut
     const command = new AdminInitiateAuthCommand(authParams);
     const response = await cognitoClient.send(command);
     
-    // Handle auth challenge
     if (response.ChallengeName) {
       console.log(`User challenge required: ${response.ChallengeName}`);
       return mapChallengeResult(
@@ -124,7 +122,6 @@ async function authenticateUser(username: string, password: string): Promise<Aut
       );
     }
     
-    // Handle successful authentication
     if (!response.AuthenticationResult) {
       throw new Error("Authentication failed");
     }

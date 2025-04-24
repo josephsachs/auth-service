@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiConfig } from '../config/api';
 
-// Define all possible auth states with discriminated union
 type AuthState = 
   | { status: 'unauthenticated', isLoading: boolean }
   | { status: 'authenticating' }
@@ -22,7 +21,6 @@ const useAuth = () => {
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // This would be where we'd check for an existing session token
     console.log('useAuth: initializing auth state');
   }, []);
 
@@ -105,7 +103,6 @@ const useAuth = () => {
   };
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    // Update state to indicate we're in the authenticating process
     setAuthState({ status: 'authenticating' });
     
     try {
@@ -116,7 +113,6 @@ const useAuth = () => {
         return false;
       }
       
-      // Handle NEW_PASSWORD_REQUIRED challenge
       if (result.challengeName === 'NEW_PASSWORD_REQUIRED') {
         console.log('New password required for user');
         setAuthState({ 
@@ -127,11 +123,14 @@ const useAuth = () => {
         return true; // Return true since auth flow is proceeding as expected
       }
       
-      // If no challenge, assume successful authentication
       setAuthState({
         status: 'authenticated',
         userEmail: username
       });
+      
+      if (result.session) {
+        localStorage.setItem('session_token', result.session);
+      }
       
       // Clear CSRF token after successful authentication
       setCsrfToken(null);
@@ -145,7 +144,6 @@ const useAuth = () => {
   };
 
   const submitNewPassword = async (newPassword: string): Promise<boolean> => {
-    // Ensure we're in the correct state
     if (authState.status !== 'newPasswordRequired') {
       console.error('Cannot submit new password: not in newPasswordRequired state');
       return false;
@@ -154,7 +152,7 @@ const useAuth = () => {
     try {
       console.log('Submitting new password');
       
-      const response = await fetch(`${apiConfig.baseUrl}${apiConfig.endpoints.respondToChallenge}`, {
+      const response = await fetch(`${apiConfig.baseUrl}${apiConfig.endpoints.challenge}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -181,11 +179,15 @@ const useAuth = () => {
       const data = await response.json();
       
       if (data.success) {
-        // Update auth state to authenticated
         setAuthState({
           status: 'authenticated',
           userEmail: authState.username
         });
+        
+        if (data.session) {
+          localStorage.setItem('session_token', data.session);
+        }
+        
         return true;
       } else {
         console.error('New password submission failed:', data);
@@ -199,23 +201,115 @@ const useAuth = () => {
     }
   };
 
-  const logout = () => {
+  /**
+   * Log the user out
+   */
+  const logout = async (): Promise<void> => {
     console.log('Logging out...');
+    const sessionToken = localStorage.getItem('session_token');
     
-    // Reset to initial state
+    if (sessionToken) {
+      try {
+        await fetch(`${apiConfig.baseUrl}${apiConfig.endpoints.logout}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Origin': window.location.origin,
+          },
+          body: JSON.stringify({
+            session: sessionToken
+          }),
+          credentials: 'include',
+          mode: 'cors'
+        });
+      } catch (error) {
+        console.error('Error logging out:', error);
+      }
+    }
+    
+    localStorage.removeItem('session_token');
+    
     setAuthState(initialState);
     setCsrfToken(null);
-    
-    // Could call logout endpoint here if needed
   };
 
-  // Check if user is authenticated (convenience function)
+  /**
+   * Verify the current session
+   */
+  const verifySession = async (): Promise<boolean> => {
+    try {
+      const storedToken = localStorage.getItem('session_token');
+
+      if (!storedToken) {
+        setAuthState({ status: 'unauthenticated', isLoading: false });
+        return false;
+      }
+
+      const response = await fetch(`${apiConfig.baseUrl}${apiConfig.endpoints.verify}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Origin': window.location.origin,
+        },
+        body: JSON.stringify({
+          session: storedToken
+        }),
+        credentials: 'include',
+        mode: 'cors'
+      });
+
+      if (!response.ok) {
+        console.error('Session verification failed');
+        setAuthState({ status: 'unauthenticated', isLoading: false });
+        localStorage.removeItem('session_token');
+        return false;
+      }
+
+      const data = await response.json();
+
+      if (!data.valid) {
+        console.error('Invalid session:', data.error);
+        setAuthState({ status: 'unauthenticated', isLoading: false });
+        localStorage.removeItem('session_token');
+        return false;
+      }
+
+      setAuthState({
+        status: 'authenticated',
+        userEmail: data.user.email
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error verifying session:', error);
+      setAuthState({ status: 'unauthenticated', isLoading: false });
+      localStorage.removeItem('session_token');
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const token = localStorage.getItem('session_token');
+      if (token) {
+        await verifySession();
+      }
+    };
+    
+    checkSession();
+    
+    const intervalId = setInterval(() => {
+      checkSession();
+    }, 5 * 60 * 1000);
+    
+    // Clean up on unmount
+    return () => clearInterval(intervalId);
+  }, []);
+
   const isAuthenticated = authState.status === 'authenticated';
-  
-  // Get user email if authenticated
   const userEmail = authState.status === 'authenticated' ? authState.userEmail : '';
-  
-  // Check if we're in loading state
   const isLoading = 
     authState.status === 'authenticating' || 
     (authState.status === 'unauthenticated' && authState.isLoading);
@@ -230,6 +324,7 @@ const useAuth = () => {
     login,
     logout,
     submitNewPassword,
+    verifySession,
     fetchCsrfToken
   };
 };
