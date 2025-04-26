@@ -3,11 +3,16 @@ import { getSession, deleteSession } from '@/lib/db';
 /**
  * Session validation and user data interface
  */
+export interface SessionData {
+  createdAt: number;
+  expiresAt: number;
+}
+
 export interface VerifySessionResult {
   valid: boolean;
   userId?: string;
   email?: string;
-  sessionData?: any;
+  sessionData?: SessionData;
   error?: string;
 }
 

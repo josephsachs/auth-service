@@ -1,5 +1,5 @@
 export const apiConfig = {
-  baseUrl: process.env.REACT_APP_API_URL || 'http://localhost:3001',
+  baseUrl: 'https://auth.jsachs.studio',
   endpoints: {
     login: '/api/login',
     logout: '/api/logout',

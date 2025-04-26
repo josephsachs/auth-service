@@ -74,12 +74,17 @@ async function handleNewPasswordChallenge(params: NewPasswordChallengeParams): P
   }
 }
 
+
+// Union type for challenge parameters
+export type ChallengeParams = 
+  | NewPasswordChallengeParams
+
 /**
  * Generic function to handle any authentication challenge
  */
 async function respondToChallenge(
   challengeName: string, 
-  params: Record<string, any>
+  params: ChallengeParams
 ): Promise<ChallengeResponse> {
   // Map to appropriate challenge handler
   switch (challengeName) {

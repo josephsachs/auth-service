@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       valid: true,
       user: {
         id: result.userId,
-        email: result.email,
+        //email: result.email,
         ...userData
       },
       session: {
