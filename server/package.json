@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack -p 3001",
+    "dev": "next dev --turbopack",
     "build": "next build",
-    "start": "next start -p 3001",
+    "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
@@ -13,9 +13,9 @@
     "@aws-sdk/client-secrets-manager": "^3.787.0",
     "better-sqlite3": "^11.9.1",
     "nanoid": "^5.1.5",
-    "next": "15.1.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "next": "15.3.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
