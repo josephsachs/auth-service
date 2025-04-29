@@ -26,15 +26,37 @@ interface SessionData {
   expiresAt: number;
 }
 
-// data directory is required
-const dataDir = path.join(process.cwd(), 'data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+// Initialize database lazily
+let db: ReturnType<typeof Database> | null = null;
+
+// Function to initialize and get the database
+function getDb(): ReturnType<typeof Database> {
+  if (db) return db;
+  
+  // Skip DB initialization during build process
+  if (process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE === 'phase-production-build') {
+    console.warn('Database access attempted during build phase');
+    throw new Error('Database is not available during build phase');
+  }
+  
+  // Initialize the database for runtime use
+  const dataDir = path.join(process.cwd(), 'data');
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+  
+  const dbPath = path.join(dataDir, 'sessions.db');
+  db = new Database(dbPath);
+  
+  // Initialize tables
+  initDb();
+  
+  return db;
 }
-const dbPath = path.join(dataDir, 'sessions.db');
-const db = new Database(dbPath);
 
 function initDb() {
+  const db = getDb();
+  
   const createTableQuery = `
     CREATE TABLE IF NOT EXISTS sessions (
       token TEXT PRIMARY KEY,
@@ -49,11 +71,8 @@ function initDb() {
   `;
   
   db.exec(createTableQuery);
-  
   db.exec('CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)');
 }
-
-initDb();
 
 export function createSession(
   token: string,
@@ -69,7 +88,7 @@ export function createSession(
   const now = Math.floor(Date.now() / 1000);
   const expiresAt = now + expiresInSeconds;
   
-  const stmt = db.prepare(`
+  const stmt = getDb().prepare(`
     INSERT INTO sessions (
       token, 
       user_id, 
@@ -104,7 +123,7 @@ export function createSession(
 export function getSession(token: string): SessionData | null {
   const now = Math.floor(Date.now() / 1000);
   
-  const stmt = db.prepare(`
+  const stmt = getDb().prepare(`
     SELECT 
       token, 
       user_id, 
@@ -139,16 +158,22 @@ export function getSession(token: string): SessionData | null {
 }
 
 export function deleteSession(token: string) {
-  const stmt = db.prepare('DELETE FROM sessions WHERE token = ?');
+  const stmt = getDb().prepare('DELETE FROM sessions WHERE token = ?');
   const result = stmt.run(token);
   return result.changes > 0;
 }
 
 export function cleanupExpiredSessions() {
   const now = Math.floor(Date.now() / 1000);
-  const stmt = db.prepare('DELETE FROM sessions WHERE expires_at <= ?');
+  const stmt = getDb().prepare('DELETE FROM sessions WHERE expires_at <= ?');
   const result = stmt.run(now);
   return result.changes;
 }
 
-export default db;
+// Export the getDb function for direct access if needed
+export { getDb };
+
+// Default export for backward compatibility
+export default {
+  getDb
+};

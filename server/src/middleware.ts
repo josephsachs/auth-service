@@ -8,16 +8,10 @@ function getAllowedOrigins(): string[] {
 }
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
   const origin = request.headers.get('origin');
   const allowedOrigins = getAllowedOrigins();
-
-  // Block non-API routes immediately
-  if (!pathname.startsWith('/api')) {
-    return new NextResponse('Not Found', { status: 404 });
-  }
-
-  // Handle CORS for /api routes
+  
+  // Handle CORS for API routes
   let response = NextResponse.next();
 
   if (request.method === 'OPTIONS') {
@@ -38,6 +32,7 @@ export function middleware(request: NextRequest) {
   return response;
 }
 
+// Only apply middleware to API routes
 export const config = {
-  matcher: ['/((?!_next|favicon.ico).*)'], // Match everything except static assets
+  matcher: '/api/:path*',
 };

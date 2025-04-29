@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cognitoService, isChallengeResult } from '@/lib/services/cognito';
 import { generateCsrfToken, verifyCsrfToken } from '@/lib/services/session/sessionFunctions';
 
+// export const dynamic = 'force-dynamic';
+
 function logError(error: unknown, context: string) {
   console.error(`[${context}]`, error);
 }

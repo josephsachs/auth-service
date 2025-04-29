@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cognitoService } from '@/lib/services/cognito';
 
+//export const dynamic = 'force-dynamic';
+
 function logError(error: unknown, context: string) {
   console.error(`[${context}]`, error);
 }
