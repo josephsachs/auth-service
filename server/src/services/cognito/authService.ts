@@ -1,3 +1,4 @@
+// src/services/cognito/authService.ts
 import { 
   CognitoIdentityProviderClient, 
   AdminInitiateAuthCommand,
@@ -8,14 +9,20 @@ import {
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 import crypto from 'crypto';
 import { AuthResult, ChallengeResult, SessionParams } from './types';
-import { createUserSession } from '@/lib/services/session/sessionFunctions';
+import { createUserSession } from '@/services/session/sessionFunctions';
 
-const secretsClient = new SecretsManagerClient({ region: process.env.AWS_REGION });
-const cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION });
+import { defaultProvider } from "@aws-sdk/credential-provider-node";
 
-/**
- * Get the Cognito client secret from AWS Secrets Manager
- */
+const secretsClient = new SecretsManagerClient({ 
+  region: process.env.AWS_REGION,
+  credentials: defaultProvider()
+});
+
+const cognitoClient = new CognitoIdentityProviderClient({ 
+  region: process.env.AWS_REGION,
+  credentials: defaultProvider()
+});
+
 async function getClientSecret(): Promise<string> {
   const secretName = process.env.COGNITO_CLIENT_SECRET_NAME;
   if (!secretName) {
@@ -24,31 +31,26 @@ async function getClientSecret(): Promise<string> {
   
   const command = new GetSecretValueCommand({ SecretId: secretName });
   const response = await secretsClient.send(command);
-  console.log(response);
+  
   if (!response.SecretString) {
     throw new Error("Failed to retrieve client secret");
   }
   
   try {
     const secretData = JSON.parse(response.SecretString);
-    return secretData.SecretHash;
+
+    return secretData.clientSecret;
   } catch {
     throw new Error("Invalid secret format");
   }
 }
 
-/**
- * Calculate the secret hash required for Cognito authentication
- */
 function calculateSecretHash(username: string, clientId: string, clientSecret: string): string {
   const message = username + clientId;
   const hmac = crypto.createHmac('sha256', clientSecret);
   return hmac.update(message).digest('base64');
 }
 
-/**
- * Create a session from authentication result
- */
 function createSession(params: SessionParams) {
   return createUserSession(
     params.userId,
@@ -58,9 +60,6 @@ function createSession(params: SessionParams) {
   );
 }
 
-/**
- * Map authentication result to a standard format
- */
 function mapAuthResult(userId: string, authResult: AuthenticationResultType): AuthResult {
   return {
     userId,
@@ -71,10 +70,12 @@ function mapAuthResult(userId: string, authResult: AuthenticationResultType): Au
   };
 }
 
-/**
- * Map challenge result to a standard format
- */
-function mapChallengeResult(userId: string, challengeName: ChallengeNameType, session: string, params: Record<string, string>): ChallengeResult {
+function mapChallengeResult(
+  userId: string, 
+  challengeName: ChallengeNameType, 
+  session: string, 
+  params: Record<string, string>
+): ChallengeResult {
   return {
     challengeName,
     session,
@@ -83,9 +84,6 @@ function mapChallengeResult(userId: string, challengeName: ChallengeNameType, se
   };
 }
 
-/**
- * Authenticate a user with Cognito
- */
 async function authenticateUser(username: string, password: string): Promise<AuthResult | ChallengeResult> {
   const clientId = process.env.COGNITO_CLIENT_ID;
   const userPoolId = process.env.COGNITO_USER_POOL_ID;
@@ -128,15 +126,12 @@ async function authenticateUser(username: string, password: string): Promise<Aut
     
     return mapAuthResult(username, response.AuthenticationResult);
   } catch (error) {
-    console.error("Cognito authentication error:", error);
+    console.error("Error:", error);
     throw error;
   }
 }
 
-/**
- * Log the user out
- */
-async function logoutUser(username: string) {
+async function logoutUser(username: string): Promise<boolean> {
   // Implement Cognito logout if needed
   console.log(`Logging out user: ${username}`);
   return true;

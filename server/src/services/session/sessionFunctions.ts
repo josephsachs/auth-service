@@ -1,15 +1,19 @@
 // src/services/session/sessionFunctions.ts
-import { nanoid } from 'nanoid';
-import { createSession, getSession, deleteSession, CognitoTokens } from '@/utils/db';
+import { v4 as uuidv4 } from 'uuid';
+import { createSession, getSession, deleteSession } from '../../utils/db';
 
 export function generateSessionToken(): string {
-  return nanoid(32);
+  return uuidv4();
 }
 
 export function createUserSession(
   userId: string,
   email: string,
-  cognitoTokens: CognitoTokens,
+  cognitoTokens: {
+    accessToken: string;
+    idToken: string;
+    refreshToken: string;
+  },
   expiresInSeconds: number = 1200
 ) {
   const token = generateSessionToken();
@@ -25,7 +29,7 @@ export function endSession(token: string): boolean {
 }
 
 export function generateCsrfToken(): string {
-  return nanoid(16);
+  return uuidv4();
 }
 
 export function verifyCsrfToken(token: string, expectedToken: string): boolean {

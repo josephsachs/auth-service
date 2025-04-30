@@ -35,8 +35,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token']
 }));
 
-// Routes
-app.use(routes);
+// Mount the router at the root path
+app.use('/', routes);
 
 // Error handling
 app.use(errorHandler);

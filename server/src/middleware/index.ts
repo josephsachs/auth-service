@@ -22,10 +22,10 @@ export function getAllowedOrigins(): string[] {
   return originsEnv.split(',').filter(Boolean).map(origin => origin.trim());
 }
 
-// CSRF protection middleware
+// CSRF protection middleware - updated for clean routes
 export function csrfProtection(req: Request, res: Response, next: NextFunction): void {
   // For POST requests that should have CSRF protection
-  if (req.method === 'POST' && req.path === '/api/login') {
+  if (req.method === 'POST' && req.path === '/login') {
     const csrfToken = req.body.csrfToken;
     const storedCsrfToken = req.cookies?.csrf_token;
     
