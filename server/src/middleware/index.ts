@@ -2,29 +2,28 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyCsrfToken } from '@/services/session/sessionFunctions';
 
-// Error logging middleware
 export function logError(error: unknown, context: string): void {
   console.error(`[${context}]`, error);
 }
 
-// Error handling middleware
 export function errorHandler(err: any, req: Request, res: Response, next: NextFunction): void {
+  console.log("ERROR HANDLER RECEIVED:", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
   logError(err, 'global-error-handler');
   
   res.status(err.status || 500).json({
-    error: err.message || 'Internal server error'
+    error: err.message || 'Internal server error',
+    name: err.name,
+    details: err.details || err.errorMessage || (err.response?.data) || err.__type || 'No additional details',
+    properties: Object.getOwnPropertyNames(err)
   });
 }
 
-// CORS config helper
 export function getAllowedOrigins(): string[] {
   const originsEnv = process.env.ALLOWED_ORIGINS || '';
   return originsEnv.split(',').filter(Boolean).map(origin => origin.trim());
 }
 
-// CSRF protection middleware - updated for /api prefix
 export function csrfProtection(req: Request, res: Response, next: NextFunction): void {
-  // For POST requests that should have CSRF protection
   if (req.method === 'POST' && req.path === '/api/login') {
     const csrfToken = req.body.csrfToken;
     const storedCsrfToken = req.cookies?.csrf_token;

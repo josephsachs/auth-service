@@ -177,15 +177,7 @@ async function registerUser(username: string, password: string, email: string): 
       userSub: createUserResponse.User.Username
     };
   } catch (error) {
-    // Preserve the original error type and message
     console.error("Registration error:", error);
-    
-    // Make sure the error maintains its type for proper handling up the chain
-    if ((error as any).name) {
-      const cognitoError = new Error((error as Error).message);
-      (cognitoError as any).name = (error as any).name;
-      throw cognitoError;
-    }
     
     throw error;
   }

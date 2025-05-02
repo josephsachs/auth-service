@@ -72,7 +72,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
       
       if (!response.ok) {
         console.error('Registration failed:', data);
-        setError(data.details || data.error || 'Registration failed. Please try again.');
+        if (data.error === 'Invalid password' && data.details) {
+          const detailsMessage = data.details.replace('Password did not conform with password policy: ', '');
+          setError(`Password requirements not met: ${detailsMessage}`);
+        } else {
+          setError(data.details || data.error || 'Registration failed. Please try again.');
+        }
         setFormLoading(false);
         return false;
       }
@@ -130,7 +135,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           minLength={8}
         />
         <p className="mt-1 text-sm text-gray-600">
-          Must be at least 8 characters and include uppercase, lowercase, numbers, and special characters.
+          Rules here later
         </p>
       </div>
 
