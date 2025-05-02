@@ -1,6 +1,8 @@
 # Node.js
 node_modules/
 
+sessions.db
+
 # Next.js build output
 .next/
 out/

@@ -141,11 +141,14 @@ async function registerUser(username: string, password: string, email: string): 
   }
   
   try {
+    console.log("Starting user registration for:", username);
+
+    // Create the user with a temporary password
     const createUserCommand = new AdminCreateUserCommand({
       UserPoolId: userPoolId,
       Username: username,
       MessageAction: "SUPPRESS",
-      TemporaryPassword: crypto.randomBytes(16).toString('hex'),
+      TemporaryPassword: password, // Use their actual password as the temporary password
       UserAttributes: [
         {
           Name: 'email',
@@ -164,6 +167,9 @@ async function registerUser(username: string, password: string, email: string): 
       throw new Error("Failed to create user");
     }
     
+    console.log("User created, setting permanent password");
+    
+    // Set the password as permanent
     const setPasswordCommand = new AdminSetUserPasswordCommand({
       UserPoolId: userPoolId,
       Username: username,
@@ -172,13 +178,13 @@ async function registerUser(username: string, password: string, email: string): 
     });
     
     await cognitoClient.send(setPasswordCommand);
+    console.log("Password set successfully as permanent");
     
     return {
       userSub: createUserResponse.User.Username
     };
   } catch (error) {
     console.error("Registration error:", error);
-    
     throw error;
   }
 }

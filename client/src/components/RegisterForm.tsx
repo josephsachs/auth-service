@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import Spinner from './Spinner';
-import { apiConfig } from '../config/api';
 
 interface RegisterFormProps {
   onSubmit: (email: string, password: string) => Promise<boolean>;
@@ -23,6 +22,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     setError('');
     setFormLoading(true);
     
+    // Client-side validation
     if (!email.includes('@')) {
       setError('Please enter a valid email address');
       setFormLoading(false);
@@ -42,51 +42,11 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
     }
     
     try {
-      console.log('Sending registration request to:', `${apiConfig.baseUrl}${apiConfig.endpoints.register}`);
-      
-      const response = await fetch(`${apiConfig.baseUrl}${apiConfig.endpoints.register}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          username: email,
-          email,
-          password
-        }),
-        credentials: 'include'
-      });
-      
-      const responseText = await response.text();
-      
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        console.error('Failed to parse response as JSON:', e);
-        setError('Received invalid response from server');
-        setFormLoading(false);
-        return false;
-      }
-      
-      if (!response.ok) {
-        console.error('Registration failed:', data);
-        if (data.error === 'Invalid password' && data.details) {
-          const detailsMessage = data.details.replace('Password did not conform with password policy: ', '');
-          setError(`Password requirements not met: ${detailsMessage}`);
-        } else {
-          setError(data.details || data.error || 'Registration failed. Please try again.');
-        }
-        setFormLoading(false);
-        return false;
-      }
-      
-      console.log('Registration successful, attempting login');
+      // Use the parent-provided onSubmit function
       const success = await onSubmit(email, password);
       
       if (!success) {
-        setError('Registration successful, but login failed. Please try signing in manually.');
+        setError('Registration failed. Please try again.');
       }
       
       setFormLoading(false);
@@ -135,7 +95,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           minLength={8}
         />
         <p className="mt-1 text-sm text-gray-600">
-          Rules here later
+          Password must be at least 8 characters with uppercase and lowercase letters
         </p>
       </div>
 
