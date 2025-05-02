@@ -1,4 +1,3 @@
-// src/services/cognito/index.ts
 import { authService } from './authService';
 import { challengeService } from './challengeService';
 

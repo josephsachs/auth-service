@@ -1,4 +1,3 @@
-// src/controllers/authController.ts
 import { Request, Response } from 'express';
 import { logError } from '@/middleware';
 import { cognitoService, isChallengeResult } from '@/services/cognito';
@@ -40,7 +39,7 @@ export async function loginUser(req: Request, res: Response): Promise<void> {
     
     const session = cognitoService.createSession({
       userId: authResult.userId,
-      email: authResult.userId, // Using userId as email placeholder
+      email: authResult.userId,
       tokens: {
         accessToken: authResult.accessToken || '',
         idToken: authResult.idToken || '',
@@ -55,5 +54,51 @@ export async function loginUser(req: Request, res: Response): Promise<void> {
   } catch (error) {
     logError(error, 'login');
     res.status(401).json({ error: 'Authentication failed' });
+  }
+}
+
+export async function registerUser(req: Request, res: Response): Promise<void> {
+  try {
+    const { username, password, email } = req.body;
+    
+    if (!username || !password || !email) {
+      res.status(400).json({ error: 'Username, password, and email are required' });
+      return;
+    }
+    
+    const registrationResult = await cognitoService.registerUser(username, password, email);
+    
+    res.json({ 
+      success: true, 
+      message: 'User registered successfully',
+      userSub: registrationResult.userSub
+    });
+    
+  } catch (error: any) {
+    logError(error, 'registration');
+
+    const errorName = error.name || (error.__type ? error.__type.split('#').pop() : '');
+    const errorMessage = error.message || 'Registration failed';
+    
+    if (errorName === 'InvalidPasswordException') {
+      res.status(400).json({ 
+        error: 'Invalid password', 
+        details: errorMessage 
+      });
+      return;
+    }
+    
+    if (errorName === 'UsernameExistsException') {
+      res.status(409).json({ 
+        error: 'Username already exists',
+        details: errorMessage
+      });
+      return;
+    }
+    
+    res.status(500).json({ 
+      error: 'Registration failed',
+      details: errorMessage
+    });
   }
 }

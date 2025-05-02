@@ -1,10 +1,11 @@
-// src/services/cognito/authService.ts
 import { 
   CognitoIdentityProviderClient, 
   AdminInitiateAuthCommand,
   AdminInitiateAuthCommandInput,
   AuthenticationResultType,
-  ChallengeNameType
+  ChallengeNameType,
+  AdminCreateUserCommand,
+  AdminSetUserPasswordCommand
 } from "@aws-sdk/client-cognito-identity-provider";
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 import crypto from 'crypto';
@@ -131,14 +132,73 @@ async function authenticateUser(username: string, password: string): Promise<Aut
   }
 }
 
+async function registerUser(username: string, password: string, email: string): Promise<{ userSub: string }> {
+  const clientId = process.env.COGNITO_CLIENT_ID;
+  const userPoolId = process.env.COGNITO_USER_POOL_ID;
+  
+  if (!clientId || !userPoolId) {
+    throw new Error("Missing Cognito configuration");
+  }
+  
+  try {
+    const createUserCommand = new AdminCreateUserCommand({
+      UserPoolId: userPoolId,
+      Username: username,
+      MessageAction: "SUPPRESS",
+      TemporaryPassword: crypto.randomBytes(16).toString('hex'),
+      UserAttributes: [
+        {
+          Name: 'email',
+          Value: email
+        },
+        {
+          Name: 'email_verified',
+          Value: 'true'
+        }
+      ]
+    });
+    
+    const createUserResponse = await cognitoClient.send(createUserCommand);
+    
+    if (!createUserResponse.User || !createUserResponse.User.Username) {
+      throw new Error("Failed to create user");
+    }
+    
+    const setPasswordCommand = new AdminSetUserPasswordCommand({
+      UserPoolId: userPoolId,
+      Username: username,
+      Password: password,
+      Permanent: true
+    });
+    
+    await cognitoClient.send(setPasswordCommand);
+    
+    return {
+      userSub: createUserResponse.User.Username
+    };
+  } catch (error) {
+    // Preserve the original error type and message
+    console.error("Registration error:", error);
+    
+    // Make sure the error maintains its type for proper handling up the chain
+    if ((error as any).name) {
+      const cognitoError = new Error((error as Error).message);
+      (cognitoError as any).name = (error as any).name;
+      throw cognitoError;
+    }
+    
+    throw error;
+  }
+}
+
 async function logoutUser(username: string): Promise<boolean> {
-  // Implement Cognito logout if needed
   console.log(`Logging out user: ${username}`);
   return true;
 }
 
 export const authService = {
   authenticateUser,
+  registerUser,
   logoutUser,
   getClientSecret,
   calculateSecretHash,
