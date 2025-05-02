@@ -1,9 +1,10 @@
 export const apiConfig = {
-  baseUrl: 'https://auth.jsachs.studio/api',
+  baseUrl: 'http://localhost:3001',
   endpoints: {
-    login: '/login',
-    logout: '/logout',
-    verify: '/verify',
-    challenge: '/challenge'
+    login: '/api/login',
+    logout: '/api/logout',
+    verify: '/api/verify',
+    challenge: '/api/challenge',
+    register: '/api/register'
   }
 };
