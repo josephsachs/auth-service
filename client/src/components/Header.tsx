@@ -4,17 +4,22 @@ import UserDropdown from './UserDropdown';
 import LoginForm from './LoginForm';
 import NewPasswordForm from './NewPasswordForm';
 import RegisterForm from './RegisterForm';
+import PasswordResetRequestForm from './PasswordResetRequestForm';
+import PasswordResetConfirmationForm from './PasswordResetConfirmationForm';
 import Modal from './Modal';
 import { useAuthContext } from '../context/AuthContext';
 import { apiConfig } from '../config/api';
+
+type AuthState = 'login' | 'newPassword' | 'register' | 'passwordResetRequest' | 'passwordResetConfirmation';
 
 const Header: React.FC = () => {
   const { isAuthenticated, userEmail, isLoading, verifySession } = useAuthContext();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [authState, setAuthState] = useState<'login' | 'newPassword' | 'register'>('login');
+  const [authState, setAuthState] = useState<AuthState>('login');
   const [session, setSession] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
+  const [resetEmail, setResetEmail] = useState<string>('');
   const [hasCsrfToken, setHasCsrfToken] = useState(false);
   const [csrfToken, setCsrfToken] = useState<string | null>(null);
   const { logout } = useAuthContext();
@@ -172,6 +177,67 @@ const Header: React.FC = () => {
     }
   };
 
+  const handlePasswordResetRequest = async (email: string) => {
+    try {
+      const response = await fetch(`${apiConfig.baseUrl}${apiConfig.endpoints.passwordResetInitiate}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username: email }),
+        credentials: 'include'
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('Password reset initiation failed:', data.error);
+        return false;
+      }
+      
+      // Save email for confirmation step
+      setResetEmail(email);
+      
+      // Move to confirmation step
+      setAuthState('passwordResetConfirmation');
+      return true;
+    } catch (error) {
+      console.error('Password reset request error:', error);
+      return false;
+    }
+  };
+
+  const handlePasswordResetConfirmation = async (email: string, code: string, newPassword: string) => {
+    try {
+      const response = await fetch(`${apiConfig.baseUrl}${apiConfig.endpoints.passwordResetConfirm}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: email,
+          confirmationCode: code,
+          newPassword
+        }),
+        credentials: 'include'
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('Password reset confirmation failed:', data.error);
+        return false;
+      }
+      
+      // Return to login page
+      setAuthState('login');
+      return true;
+    } catch (error) {
+      console.error('Password reset confirmation error:', error);
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (!isDropdownOpen) return;
     
@@ -239,7 +305,11 @@ const Header: React.FC = () => {
             ? "Sign In" 
             : authState === 'newPassword' 
               ? "Set New Password" 
-              : "Create Account"
+              : authState === 'register'
+                ? "Create Account"
+                : authState === 'passwordResetRequest'
+                  ? "Reset Password"
+                  : "Verify Code"
         }
       >
         {authState === 'login' ? (
@@ -250,15 +320,25 @@ const Header: React.FC = () => {
               hasCsrfToken={hasCsrfToken}
             />
             <div className="pt-4 mt-4 text-center border-t">
-              <p className="text-gray-600">
-                Don't have an account?{" "}
-                <button 
-                  onClick={() => setAuthState('register')}
-                  className="text-purple-600 hover:text-purple-800 focus:outline-none"
-                >
-                  Sign up
-                </button>
-              </p>
+              <div className="flex flex-col space-y-2">
+                <p className="text-gray-600">
+                  Don't have an account?{" "}
+                  <button 
+                    onClick={() => setAuthState('register')}
+                    className="text-purple-600 hover:text-purple-800 focus:outline-none"
+                  >
+                    Sign up
+                  </button>
+                </p>
+                <p className="text-gray-600">
+                  <button 
+                    onClick={() => setAuthState('passwordResetRequest')}
+                    className="text-purple-600 hover:text-purple-800 focus:outline-none"
+                  >
+                    Forgot password?
+                  </button>
+                </p>
+              </div>
             </div>
           </div>
         ) : authState === 'newPassword' ? (
@@ -266,7 +346,7 @@ const Header: React.FC = () => {
             onSubmit={handleNewPasswordSubmit}
             isLoading={isLoading}
           />
-        ) : (
+        ) : authState === 'register' ? (
           <div>
             <RegisterForm 
               onSubmit={handleRegister}
@@ -284,6 +364,20 @@ const Header: React.FC = () => {
               </p>
             </div>
           </div>
+        ) : authState === 'passwordResetRequest' ? (
+          <PasswordResetRequestForm
+            onSubmit={handlePasswordResetRequest}
+            onCancel={() => setAuthState('login')}
+            isLoading={isLoading}
+          />
+        ) : (
+          <PasswordResetConfirmationForm
+            email={resetEmail}
+            onSubmit={handlePasswordResetConfirmation}
+            onCancel={() => setAuthState('login')}
+            onRequestNewCode={() => handlePasswordResetRequest(resetEmail)}
+            isLoading={isLoading}
+          />
         )}
       </Modal>
     </header>

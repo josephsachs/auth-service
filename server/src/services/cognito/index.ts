@@ -1,11 +1,13 @@
 import { authService } from './authService';
 import { challengeService } from './challengeService';
+import { passwordResetService } from './passwordResetService';
 
 export const cognitoService = {
   ...authService,
-  ...challengeService
+  ...challengeService,
+  ...passwordResetService
 };
 
-export { authService, challengeService };
+export { authService, challengeService, passwordResetService };
 
 export * from './types';

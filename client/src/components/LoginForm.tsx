@@ -1,3 +1,4 @@
+// client/src/components/LoginForm.tsx
 import React, { useState } from 'react';
 import Spinner from './Spinner';
 
