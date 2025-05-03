@@ -1,7 +1,7 @@
 # Node.js
 node_modules/
 
-sessions.db
+*.db
 
 # Next.js build output
 .next/

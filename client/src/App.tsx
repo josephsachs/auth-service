@@ -8,7 +8,7 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-gray-200">
         <Header />
         <main className="container px-4 py-8 mx-auto">
-          <h1 className="mb-6 text-2xl font-bold">AWS Cognito Authentication Demo</h1>
+          <h1 className="mb-6 text-2xl font-bold">Secure Authentication with AWS Cognito</h1>
           
           <div className="p-6 mb-8 bg-white rounded-lg shadow-md">
             <h2 className="mb-4 text-xl font-semibold">About This Demo</h2>
@@ -16,9 +16,8 @@ const App: React.FC = () => {
               This application demonstrates a secure authentication flow using:
             </p>
             <ul className="pl-5 space-y-2 list-disc">
-              <li>React client for the frontend</li>
-              <li>AWS Cognito for authentication</li>
-              <li>Next.js server for token validation and session management</li>
+              <li>Express service & React client</li>
+              <li>See <code>aws-infra/authservice.yaml</code> for AWS configuration</li>
             </ul>
           </div>
         </main>

@@ -92,10 +92,10 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           onChange={(e) => setPassword(e.target.value)}
           className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
           required
-          minLength={8}
+          minLength={20}
         />
         <p className="mt-1 text-sm text-gray-600">
-          Password must be at least 8 characters with uppercase and lowercase letters
+          Password must be at least 20 characters with uppercase and lowercase letters
         </p>
       </div>
 
