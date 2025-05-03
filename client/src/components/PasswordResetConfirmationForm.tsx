@@ -37,8 +37,15 @@ const PasswordResetConfirmationForm: React.FC<PasswordResetConfirmationFormProps
       return;
     }
     
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters long');
+    if (newPassword.length < 20) {
+      setError('Password must be at least 20 characters long');
+      setFormLoading(false);
+      return;
+    }
+    
+    // Check for uppercase and lowercase letters
+    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword)) {
+      setError('Password must contain both uppercase and lowercase letters');
       setFormLoading(false);
       return;
     }
@@ -91,6 +98,7 @@ const PasswordResetConfirmationForm: React.FC<PasswordResetConfirmationFormProps
           onChange={(e) => setCode(e.target.value)}
           className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
           required
+          disabled={formLoading || isLoading}
         />
       </div>
 
@@ -105,10 +113,11 @@ const PasswordResetConfirmationForm: React.FC<PasswordResetConfirmationFormProps
           onChange={(e) => setNewPassword(e.target.value)}
           className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
           required
-          minLength={8}
+          minLength={20}
+          disabled={formLoading || isLoading}
         />
         <p className="mt-1 text-sm text-gray-600">
-          Password must be at least 8 characters with uppercase and lowercase letters
+          Password must be at least 20 characters with uppercase and lowercase letters
         </p>
       </div>
 
@@ -123,6 +132,7 @@ const PasswordResetConfirmationForm: React.FC<PasswordResetConfirmationFormProps
           onChange={(e) => setConfirmPassword(e.target.value)}
           className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
           required
+          disabled={formLoading || isLoading}
         />
       </div>
 
@@ -132,6 +142,7 @@ const PasswordResetConfirmationForm: React.FC<PasswordResetConfirmationFormProps
             type="button"
             onClick={onCancel}
             className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400"
+            disabled={formLoading || isLoading}
           >
             Cancel
           </button>
@@ -156,6 +167,7 @@ const PasswordResetConfirmationForm: React.FC<PasswordResetConfirmationFormProps
           type="button"
           onClick={onRequestNewCode}
           className="text-sm text-purple-600 hover:text-purple-800 focus:outline-none"
+          disabled={formLoading || isLoading}
         >
           Didn't receive a code? Send again
         </button>

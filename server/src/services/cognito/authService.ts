@@ -11,6 +11,7 @@ import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-sec
 import crypto from 'crypto';
 import { AuthResult, ChallengeResult, SessionParams } from './types';
 import { createUserSession } from '@/services/session/sessionFunctions';
+import { extractCognitoErrorName, getAuthErrorMessage } from './errorHandling';
 
 import { defaultProvider } from "@aws-sdk/credential-provider-node";
 
@@ -127,7 +128,13 @@ async function authenticateUser(username: string, password: string): Promise<Aut
     
     return mapAuthResult(username, response.AuthenticationResult);
   } catch (error) {
-    console.error("Error:", error);
+    // Enhanced error logging with better context
+    const errorName = extractCognitoErrorName(error);
+    const friendlyMessage = getAuthErrorMessage(errorName);
+    
+    console.error(`Authentication error (${errorName}):`, error);
+    console.error('Friendly error message:', friendlyMessage);
+    
     throw error;
   }
 }
@@ -184,7 +191,13 @@ async function registerUser(username: string, password: string, email: string): 
       userSub: createUserResponse.User.Username
     };
   } catch (error) {
-    console.error("Registration error:", error);
+    // Enhanced error logging with better context
+    const errorName = extractCognitoErrorName(error);
+    const friendlyMessage = getAuthErrorMessage(errorName);
+    
+    console.error(`Registration error (${errorName}):`, error);
+    console.error('Friendly error message:', friendlyMessage);
+    
     throw error;
   }
 }

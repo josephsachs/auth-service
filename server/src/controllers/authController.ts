@@ -2,6 +2,11 @@ import { Request, Response } from 'express';
 import { logError } from '@/middleware';
 import { cognitoService, isChallengeResult } from '@/services/cognito';
 import { generateCsrfToken } from '@/services/session/sessionFunctions';
+import { 
+  extractCognitoErrorName, 
+  getAuthErrorMessage, 
+  getErrorStatusCode 
+} from '@/services/cognito/errorHandling';
 
 export async function getCsrfToken(req: Request, res: Response): Promise<void> {
   const csrfToken = generateCsrfToken();
@@ -21,7 +26,10 @@ export async function loginUser(req: Request, res: Response): Promise<void> {
     const { username, password } = req.body;
     
     if (!username || !password) {
-      res.status(400).json({ error: 'Username and password are required' });
+      res.status(400).json({ 
+        success: false,
+        error: 'Username and password are required' 
+      });
       return;
     }
     
@@ -51,9 +59,22 @@ export async function loginUser(req: Request, res: Response): Promise<void> {
     res.clearCookie('csrf_token');
     res.json({ success: true, session: session.token });
     
-  } catch (error) {
+  } catch (error: any) {
     logError(error, 'login');
-    res.status(401).json({ error: 'Authentication failed' });
+    
+    // Extract error information and map to user-friendly message
+    const errorName = extractCognitoErrorName(error);
+    const friendlyErrorMessage = getAuthErrorMessage(errorName);
+    const statusCode = getErrorStatusCode(errorName);
+    
+    // Log the mapped error for debugging
+    console.log(`Login error mapped: ${errorName} -> "${friendlyErrorMessage}" (${statusCode})`);
+    
+    // Return consistent error response format
+    res.status(statusCode).json({
+      success: false,
+      error: friendlyErrorMessage
+    });
   }
 }
 

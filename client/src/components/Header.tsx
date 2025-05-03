@@ -86,7 +86,7 @@ const Header: React.FC = () => {
         setAuthState('newPassword');
         setSession(data.session);
         setUsername(email);
-        return true;
+        return { success: true };
       }
       
       if (data.success && data.session) {
@@ -96,14 +96,19 @@ const Header: React.FC = () => {
         
         if (verifySuccess) {
           closeModal();
-          return true;
+          return { success: true };
         }
       }
       
-      return false;
+      // Handle specific error from server
+      if (!data.success && data.error) {
+        return { success: false, error: data.error };
+      }
+      
+      return { success: false, error: 'Login failed. Please try again.' };
     } catch (error) {
       console.error('Login error:', error);
-      return false;
+      return { success: false, error: 'Connection error. Please check your network and try again.' };
     }
   };
 
@@ -170,7 +175,9 @@ const Header: React.FC = () => {
         return false;
       }
       
-      return await handleLogin(email, password);
+      // Call handleLogin but convert its result to a boolean
+      const loginResult = await handleLogin(email, password);
+      return loginResult.success;
     } catch (error) {
       console.error('Registration error:', error);
       return false;

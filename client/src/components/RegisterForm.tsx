@@ -29,8 +29,15 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
       return;
     }
     
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters long');
+    if (password.length < 20) {
+      setError('Password must be at least 20 characters long');
+      setFormLoading(false);
+      return;
+    }
+    
+    // Check for uppercase and lowercase letters
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password)) {
+      setError('Password must contain both uppercase and lowercase letters');
       setFormLoading(false);
       return;
     }
@@ -78,6 +85,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           onChange={(e) => setEmail(e.target.value)}
           className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
           required
+          disabled={formLoading || isLoading}
         />
       </div>
 
@@ -93,6 +101,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
           required
           minLength={20}
+          disabled={formLoading || isLoading}
         />
         <p className="mt-1 text-sm text-gray-600">
           Password must be at least 20 characters with uppercase and lowercase letters
@@ -110,6 +119,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
           onChange={(e) => setConfirmPassword(e.target.value)}
           className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
           required
+          disabled={formLoading || isLoading}
         />
       </div>
 
