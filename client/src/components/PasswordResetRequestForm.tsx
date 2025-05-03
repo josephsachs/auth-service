@@ -1,7 +1,9 @@
-// client/src/components/PasswordResetRequestForm.tsx
 import React, { useState } from 'react';
 import Spinner from './Spinner';
-import { apiConfig } from '../config/api';
+import FormField from './FormField';
+import FormError from './FormError';
+import { useForm } from '../hooks/useForm';
+import { required, isEmail } from '../utils/validators';
 
 interface PasswordResetRequestFormProps {
   onSubmit: (email: string) => Promise<boolean>;
@@ -9,70 +11,62 @@ interface PasswordResetRequestFormProps {
   isLoading: boolean;
 }
 
+interface PasswordResetRequestFormValues {
+  email: string;
+}
+
 const PasswordResetRequestForm: React.FC<PasswordResetRequestFormProps> = ({ 
   onSubmit,
   onCancel,
   isLoading 
 }) => {
-  const [email, setEmail] = useState('');
-  const [error, setError] = useState('');
-  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Reset error state
-    setError('');
-    setFormLoading(true);
-    
-    // Client-side validation
-    if (!email.includes('@')) {
-      setError('Please enter a valid email address');
-      setFormLoading(false);
-      return;
+  const form = useForm<PasswordResetRequestFormValues>({
+    email: {
+      initialValue: '',
+      validationRules: [required(), isEmail()]
     }
+  });
+  
+  const handleSubmit = form.handleSubmit(async (values) => {
+    setFormError(null);
     
     try {
-      // Use the parent-provided onSubmit function
-      const success = await onSubmit(email);
+      const success = await onSubmit(values.email);
       
       if (!success) {
-        setError('Failed to send password reset email. Please try again.');
+        setFormError('Failed to send password reset email. Please try again.');
       }
       
-      setFormLoading(false);
       return success;
     } catch (error) {
       console.error('Password reset request error:', error);
-      setError('An error occurred. Please try again.');
-      setFormLoading(false);
+      setFormError('An error occurred. Please try again.');
       return false;
     }
-  };
+  });
   
   return (
     <form onSubmit={handleSubmit}>
-      {error && (
-        <div className="p-2 mb-4 text-red-700 bg-red-100 border border-red-400 rounded">
-          {error}
-        </div>
-      )}
+      <FormError error={formError} />
       
       <div className="mb-6">
         <p className="mb-4 text-gray-700">
           Enter your email address and we'll send you a code to reset your password.
         </p>
         
-        <label htmlFor="reset-email" className="block mb-2 text-gray-700">
-          Email Address
-        </label>
-        <input
+        <FormField
           id="reset-email"
+          label="Email Address"
           type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+          value={form.values.email}
+          onChange={form.handleChange('email')}
+          onBlur={form.handleBlur('email')}
+          error={form.errors.email}
+          touched={form.touched.email}
           required
+          disabled={form.isSubmitting || isLoading}
         />
       </div>
 
@@ -81,16 +75,17 @@ const PasswordResetRequestForm: React.FC<PasswordResetRequestFormProps> = ({
           type="button"
           onClick={onCancel}
           className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400"
+          disabled={form.isSubmitting || isLoading}
         >
           Cancel
         </button>
         
         <button
           type="submit"
-          disabled={isLoading || formLoading}
+          disabled={isLoading || form.isSubmitting}
           className="flex items-center px-4 py-2 text-white bg-purple-700 rounded-md hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-purple-400"
         >
-          {isLoading || formLoading ? (
+          {isLoading || form.isSubmitting ? (
             <>
               <Spinner size="sm" />
               <span className="ml-2">Sending...</span>

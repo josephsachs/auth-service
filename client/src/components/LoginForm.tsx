@@ -1,6 +1,10 @@
 // client/src/components/LoginForm.tsx
 import React, { useState } from 'react';
 import Spinner from './Spinner';
+import FormField from './FormField';
+import FormError from './FormError';
+import { useForm } from '../hooks/useForm';
+import { required, isEmail } from '../utils/validators';
 
 interface LoginFormProps {
   onSubmit: (email: string, password: string) => Promise<{success: boolean; error?: string}>;
@@ -8,75 +12,75 @@ interface LoginFormProps {
   hasCsrfToken: boolean;
 }
 
+interface LoginFormValues {
+  email: string;
+  password: string;
+}
+
 const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading, hasCsrfToken }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [formSubmitting, setFormSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (formSubmitting || isLoading || !hasCsrfToken) {
-      return; // Prevent multiple submissions
+  const form = useForm<LoginFormValues>({
+    email: {
+      initialValue: '',
+      validationRules: [required(), isEmail()]
+    },
+    password: {
+      initialValue: '',
+      validationRules: [required()]
+    }
+  });
+  
+  const handleSubmit = form.handleSubmit(async (values) => {
+    if (isLoading || !hasCsrfToken) {
+      return;
     }
     
-    setError(null);
-    setFormSubmitting(true);
+    setFormError(null);
     
     try {
-      const result = await onSubmit(email, password);
+      const result = await onSubmit(values.email, values.password);
       
       if (!result.success && result.error) {
-        setError(result.error);
+        setFormError(result.error);
       }
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
+      setFormError('An unexpected error occurred. Please try again.');
       console.error('Login form submission error:', err);
-    } finally {
-      setFormSubmitting(false);
     }
-  };
+  });
   
-  const isSubmitDisabled = formSubmitting || isLoading || !hasCsrfToken;
+  const isSubmitDisabled = form.isSubmitting || isLoading || !hasCsrfToken;
   
   return (
     <form onSubmit={handleSubmit}>
-      {error && (
-        <div className="p-3 mb-4 text-red-700 bg-red-100 border border-red-400 rounded">
-          {error}
-        </div>
-      )}
+      <FormError error={formError} />
       
-      <div className="mb-4">
-        <label htmlFor="email" className="block mb-2 text-gray-700">
-          Email
-        </label>
-        <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-          required
-          disabled={formSubmitting}
-        />
-      </div>
+      <FormField
+        id="email"
+        label="Email"
+        type="email"
+        value={form.values.email}
+        onChange={form.handleChange('email')}
+        onBlur={form.handleBlur('email')}
+        error={form.errors.email}
+        touched={form.touched.email}
+        required
+        disabled={form.isSubmitting}
+      />
 
-      <div className="mb-6">
-        <label htmlFor="password" className="block mb-2 text-gray-700">
-          Password
-        </label>
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-          required
-          disabled={formSubmitting}
-        />
-      </div>
+      <FormField
+        id="password"
+        label="Password"
+        type="password"
+        value={form.values.password}
+        onChange={form.handleChange('password')}
+        onBlur={form.handleBlur('password')}
+        error={form.errors.password}
+        touched={form.touched.password}
+        required
+        disabled={form.isSubmitting}
+      />
 
       <div className="flex justify-end">
         <button
@@ -84,7 +88,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSubmit, isLoading, hasCsrfToken
           disabled={isSubmitDisabled}
           className="flex items-center px-4 py-2 text-white bg-purple-700 rounded-md hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-400 disabled:bg-purple-400"
         >
-          {formSubmitting ? (
+          {form.isSubmitting ? (
             <>
               <Spinner size="sm" />
               <span className="ml-2">Signing in...</span>
