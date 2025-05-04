@@ -62,15 +62,12 @@ export async function loginUser(req: Request, res: Response): Promise<void> {
   } catch (error: any) {
     logError(error, 'login');
     
-    // Extract error information and map to user-friendly message
     const errorName = extractCognitoErrorName(error);
     const friendlyErrorMessage = getAuthErrorMessage(errorName);
     const statusCode = getErrorStatusCode(errorName);
     
-    // Log the mapped error for debugging
     console.log(`Login error mapped: ${errorName} -> "${friendlyErrorMessage}" (${statusCode})`);
     
-    // Return consistent error response format
     res.status(statusCode).json({
       success: false,
       error: friendlyErrorMessage

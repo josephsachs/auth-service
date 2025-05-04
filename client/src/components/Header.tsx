@@ -272,7 +272,7 @@ const Header: React.FC = () => {
     <header className="text-white bg-purple-900 shadow-md">
       <div className="container flex items-center justify-between px-4 py-3 mx-auto">
         <div className="flex items-center">
-          <h1 className="text-xl font-bold">Cognito Auth Demo</h1>
+          <h1 className="text-xl font-bold">Authentication Demo</h1>
         </div>
 
         <div className="flex items-center space-x-3">

@@ -1,6 +1,7 @@
 // client/src/config/api.ts
 export const apiConfig = {
-  baseUrl: 'http://localhost:3001',
+  // Change baseUrl to http://localhost:3001 for dev
+  baseUrl: 'https://auth.jsachs.studio',
   endpoints: {
     login: '/api/login',
     logout: '/api/logout',

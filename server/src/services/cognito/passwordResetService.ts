@@ -38,11 +38,9 @@ async function initiatePasswordReset(username: string): Promise<{ success: boole
   } catch (error: any) {
     console.error("Password reset initiation error:", error);
     
-    // Handle different error types
     const errorName = error.name || (error.__type ? error.__type.split('#').pop() : '');
     
     if (errorName === 'UserNotFoundException') {
-      // For security reasons, still indicate success even if user not found
       return {
         success: true,
         message: "If the account exists, a password reset code has been sent"
@@ -56,7 +54,6 @@ async function initiatePasswordReset(username: string): Promise<{ success: boole
       };
     }
     
-    // Generic error
     return {
       success: false,
       error: "Failed to initiate password reset. Please try again."
@@ -97,9 +94,6 @@ async function confirmPasswordReset(
       message: "Password has been reset successfully"
     };
   } catch (error: any) {
-    console.error("Password reset confirmation error:", error);
-    
-    // Handle different error types
     const errorName = error.name || (error.__type ? error.__type.split('#').pop() : '');
     
     if (errorName === 'CodeMismatchException') {
@@ -123,7 +117,6 @@ async function confirmPasswordReset(
       };
     }
     
-    // Generic error
     return {
       success: false,
       error: "Failed to reset password. Please try again."

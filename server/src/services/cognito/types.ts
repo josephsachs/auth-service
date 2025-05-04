@@ -43,7 +43,6 @@ export interface SessionParams {
   expiresIn: number;
 }
 
-// Mapping of internal challenge names to AWS SDK challenge names
 export const ChallengeTypeMap: Record<string, ChallengeNameType> = {
   NEW_PASSWORD_REQUIRED: ChallengeNameType.NEW_PASSWORD_REQUIRED,
   SMS_MFA: ChallengeNameType.SMS_MFA,

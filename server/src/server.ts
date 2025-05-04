@@ -2,6 +2,12 @@
 import 'module-alias/register';
 import app from './app';
 
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('=== UNHANDLED PROMISE REJECTION ===');
+  console.error('Reason:', reason);
+  // Don't exit the process so we can see the error
+});
+
 const port = process.env.PORT || 3001;
 
 // Start the server

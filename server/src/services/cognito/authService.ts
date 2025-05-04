@@ -128,7 +128,6 @@ async function authenticateUser(username: string, password: string): Promise<Aut
     
     return mapAuthResult(username, response.AuthenticationResult);
   } catch (error) {
-    // Enhanced error logging with better context
     const errorName = extractCognitoErrorName(error);
     const friendlyMessage = getAuthErrorMessage(errorName);
     
@@ -150,12 +149,11 @@ async function registerUser(username: string, password: string, email: string): 
   try {
     console.log("Starting user registration for:", username);
 
-    // Create the user with a temporary password
     const createUserCommand = new AdminCreateUserCommand({
       UserPoolId: userPoolId,
       Username: username,
       MessageAction: "SUPPRESS",
-      TemporaryPassword: password, // Use their actual password as the temporary password
+      TemporaryPassword: password,
       UserAttributes: [
         {
           Name: 'email',
@@ -176,7 +174,6 @@ async function registerUser(username: string, password: string, email: string): 
     
     console.log("User created, setting permanent password");
     
-    // Set the password as permanent
     const setPasswordCommand = new AdminSetUserPasswordCommand({
       UserPoolId: userPoolId,
       Username: username,
@@ -191,7 +188,6 @@ async function registerUser(username: string, password: string, email: string): 
       userSub: createUserResponse.User.Username
     };
   } catch (error) {
-    // Enhanced error logging with better context
     const errorName = extractCognitoErrorName(error);
     const friendlyMessage = getAuthErrorMessage(errorName);
     
