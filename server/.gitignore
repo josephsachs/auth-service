@@ -1,6 +1,8 @@
 # Dependency directories
 node_modules/
 
+data/sessions.db
+
 # Build output
 dist/
 
