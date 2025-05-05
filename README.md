@@ -5,7 +5,9 @@
 ### Author's Note
 This is a demo project which uses React, Node.js/Express and Amazon Web Services. I wanted to create a microservice representing a vertical slice of a feature, with a complete infrastructure.
 
-The React client is served from a static webhost, the Node.js API from an EC2 instance. Both are secured using CloudFront. For convenience, the API utilizes SQLite database for session storage; a more sophisticated approach might use in-memory storage or RDS. 
+The React client is served from a static webhost, the Node.js API from an EC2 instance. Both are secured using CloudFront. For convenience, the API utilizes SQLite database for session storage; a more sophisticated approach might use in-memory storage or RDS.
+
+Live demo at [auth.jsachs.studio](https://auth.jsachs.studio).
 
 ### Infrastructure 
 CloudFormation at [www.github.com/josephsachs/aws-infra](https://github.com/josephsachs/aws-infra).
